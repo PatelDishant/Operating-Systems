@@ -373,13 +373,15 @@ static int init_function(void) {
   pid_lock(&calltable_lock);
   // set call table to writable
   set_addr_rw(sys_call_table);
-  // set orig_cutom_syscall to be the function at MY_CUSTOM_SYSCALL
+  // set orig_custom_syscall to be the function at MY_CUSTOM_SYSCALL
   orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
   // replace call in table with the custom syscall
   sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
   // hijack the exit_group
   orig_exit_group = sys_call_table[__NR_exit_group];
   sys_call_table[__NR_exit_group] = &my_exit_group;
+  // set call table to read only
+  set_addr_ro(sys_call_table);
   // unlock the call table
   pid_unlock(&calltable_lock)
   // lock pidlists
@@ -403,14 +405,18 @@ static int init_function(void) {
  *   then set it back to read only once done.
  * - Ensure synchronization, if needed.
  */
-static void exit_function(void)
-{
-
-
-
-
-
-
+static void exit_function(void){
+  // lock the call table
+  pid_lock(&calltable_lock);
+  // set the table to writeable
+  set_addr_rw(sys_call_table);
+  // set the original system calls in place
+  sys_call_table[MY_CUSTOM_SYSCALL] = orig_custom_syscall
+  sys_call_table[__NR_exit_group] = orig_exit_group
+  // set the table to read only
+  set_addr_ro(sys_call_table);
+  // lock the call Table
+  pid_unlock(&calltable_lock);
 }
 
 module_init(init_function);
