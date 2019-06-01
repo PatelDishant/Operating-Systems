@@ -287,7 +287,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
   if (monitored > 0) {
     log_message(current->pid, reg->ax, reg->bx, reg-> cx, reg->dx, reg->si, reg->di, reg->bp);
   }
-  
+
 
 	return 0; // Just a placeholder, so it compiles with no warnings!
 }
@@ -342,13 +342,21 @@ asmlinkage long interceptor(struct pt_regs reg) {
  *   you might be holding, before you exit the function (including error cases!).
  */
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
+  // check the syscall to make sure it passes
+  if(0<syscall && syscall < NR_syscalls && syscall != MY_CUSTOM_SYSCALL){
+    //
+    if(cmd != REQUEST_SYSCALL_RELEASE && cmd != REQUEST_SYSCALL_INTERCEPT){
 
-
-
-
-
-
-	return 0;
+    } // check if the monitoring pids are valid
+    else if (cmd == REQUEST_STOP_MONITORING && cmd == REQUEST_START_MONITORING){
+      if (pid_task(find_vpid(pid), PIDTYPE_PID)) {
+        if (pid >= 0) {
+          
+        }
+      }
+    }
+  }
+  return -EINVAL
 }
 
 /**
