@@ -277,13 +277,17 @@ void my_exit_group(int status) {
  *     Remember that the parameters are passed in the pt_regs registers.
  *     The syscall parameters are found (in order) in the
  *     ax, bx, cx, dx, si, di, and bp registers (see the pt_regs struct).
+ *     (syscall), 1-6 passing paramteres
  * - Don't forget to call the original system call, so we allow processes to proceed as normal.
  */
 asmlinkage long interceptor(struct pt_regs reg) {
-
-
-
-
+  // check if the syscall is being monitored for current pid
+  int monitored = check_pid_monitored((int)reg->ax, current->pid);
+  // log message if being monitored
+  if (monitored > 0) {
+    log_message(current->pid, reg->ax, reg->bx, reg-> cx, reg->dx, reg->si, reg->di, reg->bp);
+  }
+  
 
 	return 0; // Just a placeholder, so it compiles with no warnings!
 }
