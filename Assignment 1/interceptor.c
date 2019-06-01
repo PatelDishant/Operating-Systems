@@ -249,13 +249,12 @@ void (*orig_exit_group)(int);
  * The exiting process's PID can be retrieved using the current variable (current->pid).
  * Don't forget to call the original exit_group.
  */
-void my_exit_group(int status)
-{
-  // lock the pid list
+void my_exit_group(int status) {
+  // lock the pid lists, make sure to unlock after CS
   spin_lock(&pidlist_lock);
   // remove process from all lists
   del_pid(current->pid);
-  // unlock the pid list
+  // CS has ended
   spin_unlock(&pidlist_lock);
   // call original exit_group passing the status of the exit
   (*orig_exit_group)(status);
@@ -370,13 +369,27 @@ long (*orig_custom_syscall)(void);
  * - Ensure synchronization as needed.
  */
 static int init_function(void) {
-
-
-
-
-
-
-
+  // lock syscall table
+  pid_lock(&calltable_lock);
+  // set call table to writable
+  set_addr_rw(sys_call_table);
+  // set orig_cutom_syscall to be the function at MY_CUSTOM_SYSCALL
+  orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
+  // replace call in table with the custom syscall
+  sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
+  // hijack the exit_group
+  orig_exit_group = sys_call_table[__NR_exit_group];
+  sys_call_table[__NR_exit_group] = &my_exit_group;
+  // unlock the call table
+  pid_unlock(&calltable_lock)
+  // lock pidlists
+  pid_lock(&pidlist_lock);
+  // init all the list heads
+  for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
+    INIT_LIST_HEAD(&(my_table[ctr]->my_list));
+  }
+  // unlock pidlist
+  pid_unlock(&pidlist_lock);
 	return 0;
 }
 
