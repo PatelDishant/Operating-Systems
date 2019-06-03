@@ -448,6 +448,10 @@ long request_start_monitoring(int syscall, int pid){
   // check if pid = 0, then all pids to be monitored
   int result = 0;
   if (pid == 0){
+    // check if monitored was 1 before, then clear the list
+    if (mytable[syscall]->monitored == 1){
+      destroy_list(syscall);
+    }
     // set monitored to 2, no need to add any pids to the list (blacklist)
     mytable[syscall]->monitored = 2
   }
