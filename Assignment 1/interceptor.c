@@ -303,13 +303,13 @@ asmlinkage long interceptor(struct pt_regs reg) {
  *
  * TODO: Implement this function, to handle all 4 commands correctly.
  *
- * - For each of the commands, check that the arguments are valid (-EINVAL):
- *   a) the syscall must be valid (not negative, not > NR_syscalls, and not MY_CUSTOM_SYSCALL itself)
- *   b) the pid must be valid for the last two commands. It cannot be a negative integer,
- *      and it must be an existing pid (except for the case when it's 0, indicating that we want
- *      to start/stop monitoring for "all pids").
- *      If a pid belongs to a valid process, then the following expression is non-NULL:
- *           pid_task(find_vpid(pid), PIDTYPE_PID)
+ ** - For each of the commands, check that the arguments are valid (-EINVAL):
+ **   a) the syscall must be valid (not negative, not > NR_syscalls, and not MY_CUSTOM_SYSCALL itself)
+ **   b) the pid must be valid for the last two commands. It cannot be a negative integer,
+ **      and it must be an existing pid (except for the case when it's 0, indicating that we want
+ **      to start/stop monitoring for "all pids").
+ **      If a pid belongs to a valid process, then the following expression is non-NULL:
+ **          pid_task(find_vpid(pid), PIDTYPE_PID)
  * - Check that the caller has the right permissions (-EPERM)
  *      For the first two commands, we must be root (see the current_uid() macro).
  *      For the last two commands, the following logic applies:
@@ -344,14 +344,18 @@ asmlinkage long interceptor(struct pt_regs reg) {
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
   // check the syscall to make sure it passes
   if(0<syscall && syscall < NR_syscalls && syscall != MY_CUSTOM_SYSCALL){
-    //
-    if(cmd != REQUEST_SYSCALL_RELEASE && cmd != REQUEST_SYSCALL_INTERCEPT){
+    if(cmd == REQUEST_SYSCALL_RELEASE || cmd == REQUEST_SYSCALL_INTERCEPT){
+      // user must be root to call these, uid will be 0
+      if(current_uid().val == 0){
 
-    } // check if the monitoring pids are valid
-    else if (cmd == REQUEST_STOP_MONITORING && cmd == REQUEST_START_MONITORING){
-      if (pid_task(find_vpid(pid), PIDTYPE_PID)) {
-        if (pid >= 0) {
-          
+      }
+    }
+    else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
+      // check if current PID actually exists
+      if (pid >= 0) {
+        // check if pid is above 0
+        if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
+
         }
       }
     }
