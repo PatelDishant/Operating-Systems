@@ -287,7 +287,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
   if (monitored > 0) {
     log_message(current->pid, reg->ax, reg->bx, reg-> cx, reg->dx, reg->si, reg->di, reg->bp);
   }
-  return = (mytable[reg->ax]->f)();
+  return = (table[reg->ax]->f)(ax, bx, cx, dx, si, di, bp);
 }
 
 long request_syscall_intercept(int syscall);
@@ -352,45 +352,47 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
       if(current_uid().val == 0){
         if(cmd == REQUEST_SYSCALL_RELEASE){
           // check if syscall is being currently intercepted
-          if(mytable[syscall]->intercepted == 0){
+          if(table[syscall]->intercepted != 0){
             return = request_syscall_release(syscall);
           }
           return -EINVAL
         } else {
           // request_syscall_intercept
           // check if intercepting an already intercepted call
-          if(mytable[syscall]->intercepted == 1){
+          if(table[syscall]->intercepted != 1){
             return = request_syscall_intercept(syscall);
           }
           return -EBUSY
         }
       }
       return -EPERM
-    }
-    else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
-      // check if current PID actually exists
-      if (pid >= 0) {
-        // check if pid is above 0
-        if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
-          // check if user is root
-          if(current_uid().val == 0 || check_pid_from_list((pid_t) pid, current->pid) == 0 && pid == 0){
-              // check if syscall has been intercepted and pid is being monitored for stoping monitoring
-              if(cmd == REQUEST_STOP_MONITORING){
-                if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) != 0){
+      }
+  } else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
+    // check if current PID actually exists
+    if (pid >= 0) {
+      if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
+        // check if user is root
+        if((current_uid().val == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
+            // check if syscall has been intercepted and pid is being monitored for stoping monitoring
+            if(cmd == REQUEST_STOP_MONITORING){
+              if(table[syscall]->intercepted != 0){
+                if(table[syscall]->monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
                   return = request_stop_monitoring(syscall, pid);
                 }
-                return -EINVAL
-              } else {
-                // request_start_monitoring
-                // check if trying to monitor a monitored pid
-                if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) == 0){
+              }
+              return -EINVAL
+            } else {
+              // request_start_monitoring
+              // check if trying to monitor a monitored pid
+              if(table[syscall]->intercepted != 0){
+                if(table[syscall]->monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) == 0){
                   return = request_start_monitoring(syscall, pid);
                 }
-                return -EBUSY
               }
-          }
-          return -EPERM
+              return -EBUSY
+            }
         }
+        return -EPERM
       }
     }
   }
@@ -405,12 +407,16 @@ long request_syscall_intercept(int syscall){
   pid_lock(&calltable_lock);
   // lock my table
   pid_lock(&pidlist_lock);
+  //rw for call Table
+  set_addr_rw((unsigned long) sys_call_table);
   // store original syscall to my table
-  mytable[syscall]->f = sys_call_table[syscall]
+  table[syscall]->f = sys_call_table[syscall]
   // change syscall to generic intercept function
   sys_call_table[syscall] = &interceptor();
   // set the intercepted flag to 1
-  mytable[syscall]->intercepted = 1;
+  table[syscall]->intercepted = 1;
+  // set ro for call table
+  set_addr_ro((unsigned long) sys_call_table);
   // unlock syscall table
   pid_unlock(&pidlist_lock);
   // unlock my table
@@ -424,15 +430,17 @@ This helper function releases the interceptor
 long request_syscall_release(int syscall){
   // lock the system call table
   pid_lock(&calltable_lock);
-  // lock mytable
+  // lock table
   pid_lock(&pidlist_lock);
-  // clear mytable list
+  // clear table list
   destroy_list(syscall);
+  set_addr_rw((unsigned long) sys_call_table);
   // restore original system call
-  sys_call_table[syscall]=mytable[syscall]->f
+  sys_call_table[syscall]=table[syscall]->f
   // wipe the stored syscall function
-  mytable[syscall]->f = NULL
-  // unlock mytable
+  table[syscall]->f = NULL
+  set_addr_ro((unsigned long) sys_call_table);
+  // unlock table
   pid_unlock(&pidlist_lock);
   // unlock system call table
   pid_unlock(&calltable_lock);
@@ -443,24 +451,27 @@ long request_syscall_release(int syscall){
 This helper function starts monitoring a pid given an intercepted system call
 */
 long request_start_monitoring(int syscall, int pid){
-  // lock mytable
+  // lock table
   pid_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
   int result = 0;
   if (pid == 0){
     // check if monitored was 1 before, then clear the list
-    if (mytable[syscall]->monitored == 1){
+    if (table[syscall]->monitored >= 1){
       destroy_list(syscall);
     }
     // set monitored to 2, no need to add any pids to the list (blacklist)
-    mytable[syscall]->monitored = 2
+    table[syscall]->monitored = 2
   }
   // else only that given pid will be monitored
   else {
-    mytable[syscall]->monitored = 1
-    result = add_pid_sysc((pid_t) pid, syscall);
+    if(table[syscall]->monitored != 2){
+      // check if monitoring everything already, in that case nothing should be done
+      table[syscall]->monitored = 1
+      result = add_pid_sysc((pid_t) pid, syscall);
+    }
   }
-  // unlock mytable
+  // unlock table
   pid_lock(&pidlist_lock);
   return = (long) result;
 }
@@ -469,18 +480,18 @@ long request_start_monitoring(int syscall, int pid){
 This helper function stops monitoring a given pid
 */
 long request_stop_monitoring(int syscall, int pid){
-  // lock mytable
+  // lock table
   pid_lock(&pidlist_lock);
   int result = 0;
   // check if monitored is set to 2
-  if(mytable[syscall]->monitored = 2){
+  if(table[syscall]->monitored = 2){
     // the pidlist there is a blacklist so add it to there
     result = (long) add_pid_sysc((pid_t) pid, syscall);
   } // else we remove normally
   else {
     result = (long) del_pid_sysc((pid_t) pid, syscall);
   }
-  // unlock mytable
+  // unlock table
   pid_unlock(&pidlist_lock);
   return = result;
 }
@@ -526,7 +537,7 @@ static int init_function(void) {
   pid_lock(&pidlist_lock);
   // init all the list heads
   for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
-    INIT_LIST_HEAD(&(mytable[ctr]->my_list));
+    INIT_LIST_HEAD(&(table[ctr]->my_list));
   }
   // unlock pidlist
   pid_unlock(&pidlist_lock);
