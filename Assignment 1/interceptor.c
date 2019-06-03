@@ -287,10 +287,10 @@ asmlinkage long interceptor(struct pt_regs reg) {
   if (monitored > 0) {
     log_message(current->pid, reg->ax, reg->bx, reg-> cx, reg->dx, reg->si, reg->di, reg->bp);
   }
-
-
-	return 0; // Just a placeholder, so it compiles with no warnings!
+  return = (mytable[reg->ax]->f)();
 }
+
+long request_syscall_intercept(int cmd, int syscall, int pid);
 
 /**
  * My system call - this function is called whenever a user issues a MY_CUSTOM_SYSCALL system call.
@@ -349,18 +349,17 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
       if(current_uid().val == 0){
         if(cmd == REQUEST_SYSCALL_RELEASE){
           // check if syscall is being currently intercepted
-          if(my_table[syscall]->intercepted == 0){
+          if(mytable[syscall]->intercepted == 0){
 
           }
           return -EINVAL
         } else {
           // check if intercepting an already intercepted call
-          if(my_table[syscall]->intercepted == 1){
-
+          if(mytable[syscall]->intercepted == 1){
+            return = request_syscall_intercept(cmd, syscall, pid);
           }
           return -EBUSY
         }
-
       }
       return -EPERM
     }
@@ -373,13 +372,13 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
           if(current_uid().val == 0 || check_pid_from_list((pid_t) pid, current->pid) == 0 && pid == 0){
               // check if syscall has been intercepted and pid is being monitored for stoping monitoring
               if(cmd == REQUEST_STOP_MONITORING){
-                if(my_tablep[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) != 0){
+                if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) != 0){
 
                 }
                 return -EINVAL
               } else {
                 // check if trying to monitor a monitored pid
-                if(my_tablep[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) == 0){
+                if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) == 0){
 
                 }
                 return -EBUSY
@@ -391,6 +390,27 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
     }
   }
   return -EINVAL
+}
+
+/*
+This helper function replaces the system call syscall with an interceptor function.
+*/
+long request_syscall_intercept(int cmd, int syscall, int pid){
+  // lock the syscall table
+  pid_lock(&calltable_lock);
+  // lock my table
+  pid_lock(&pidlist_lock);
+  // store original syscall to my table
+  mytable[syscall]->f = sys_call_table[syscall]
+  // change syscall to generic intercept function
+  sys_call_table[syscall] = &interceptor();
+  // set the intercepted flag to 1
+  mytable[syscall]->intercepted = 1;
+  // unlock syscall table
+  pid_unlock(&pidlist_lock);
+  // unlock my table
+  pid_unlock(&calltable_lock);
+  return (long) 0;
 }
 
 /**
@@ -434,7 +454,7 @@ static int init_function(void) {
   pid_lock(&pidlist_lock);
   // init all the list heads
   for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
-    INIT_LIST_HEAD(&(my_table[ctr]->my_list));
+    INIT_LIST_HEAD(&(mytable[ctr]->my_list));
   }
   // unlock pidlist
   pid_unlock(&pidlist_lock);
