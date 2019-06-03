@@ -290,7 +290,10 @@ asmlinkage long interceptor(struct pt_regs reg) {
   return = (mytable[reg->ax]->f)();
 }
 
-long request_syscall_intercept(int cmd, int syscall, int pid);
+long request_syscall_intercept(int syscall);
+long request_syscall_release(int syscall);
+long request_start_monitoring(int syscall, int pid);
+long request_stop_monitoring(int syscall, int pid);
 
 /**
  * My system call - this function is called whenever a user issues a MY_CUSTOM_SYSCALL system call.
@@ -350,13 +353,14 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
         if(cmd == REQUEST_SYSCALL_RELEASE){
           // check if syscall is being currently intercepted
           if(mytable[syscall]->intercepted == 0){
-
+            return = request_syscall_release(syscall);
           }
           return -EINVAL
         } else {
+          // request_syscall_intercept
           // check if intercepting an already intercepted call
           if(mytable[syscall]->intercepted == 1){
-            return = request_syscall_intercept(cmd, syscall, pid);
+            return = request_syscall_intercept(syscall);
           }
           return -EBUSY
         }
@@ -373,13 +377,14 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
               // check if syscall has been intercepted and pid is being monitored for stoping monitoring
               if(cmd == REQUEST_STOP_MONITORING){
                 if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) != 0){
-
+                  return = request_stop_monitoring(syscall, pid);
                 }
                 return -EINVAL
               } else {
+                // request_start_monitoring
                 // check if trying to monitor a monitored pid
                 if(mytable[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) == 0){
-
+                  return = request_start_monitoring(syscall, pid);
                 }
                 return -EBUSY
               }
@@ -395,7 +400,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 /*
 This helper function replaces the system call syscall with an interceptor function.
 */
-long request_syscall_intercept(int cmd, int syscall, int pid){
+long request_syscall_intercept(int syscall){
   // lock the syscall table
   pid_lock(&calltable_lock);
   // lock my table
@@ -411,6 +416,69 @@ long request_syscall_intercept(int cmd, int syscall, int pid){
   // unlock my table
   pid_unlock(&calltable_lock);
   return (long) 0;
+}
+
+/*
+This helper function releases the interceptor
+*/
+long request_syscall_release(int syscall){
+  // lock the system call table
+  pid_lock(&calltable_lock);
+  // lock mytable
+  pid_lock(&pidlist_lock);
+  // clear mytable list
+  destroy_list(syscall);
+  // restore original system call
+  sys_call_table[syscall]=mytable[syscall]->f
+  // wipe the stored syscall function
+  mytable[syscall]->f = NULL
+  // unlock mytable
+  pid_unlock(&pidlist_lock);
+  // unlock system call table
+  pid_unlock(&calltable_lock);
+  return (long) 0;
+}
+
+/*
+This helper function starts monitoring a pid given an intercepted system call
+*/
+long request_start_monitoring(int syscall, int pid){
+  // lock mytable
+  pid_lock(&pidlist_lock);
+  // check if pid = 0, then all pids to be monitored
+  int result = 0;
+  if (pid == 0){
+    // set monitored to 2, no need to add any pids to the list (blacklist)
+    mytable[syscall]->monitored = 2
+  }
+  // else only that given pid will be monitored
+  else {
+    mytable[syscall]->monitored = 1
+    result = add_pid_sysc((pid_t) pid, syscall);
+  }
+  // unlock mytable
+  pid_lock(&pidlist_lock);
+  return = (long) result;
+}
+
+/*
+This helper function stops monitoring a given pid
+*/
+long request_stop_monitoring(int syscall, int pid){
+  // lock mytable
+  pid_lock(&pidlist_lock);
+  int result = 0;
+  // check if monitored is set to 2
+  if(mytable[syscall]->monitored = 2){
+    // the pidlist there is a blacklist so add it to there
+    result = (long) add_pid_sysc((pid_t) pid, syscall);
+  } // else we remove normally
+  else {
+    result = (long) del_pid_sysc((pid_t) pid, syscall);
+  }
+  // unlock mytable
+  pid_unlock(&pidlist_lock);
+  return = result;
 }
 
 /**
