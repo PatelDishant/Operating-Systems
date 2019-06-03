@@ -310,21 +310,21 @@ asmlinkage long interceptor(struct pt_regs reg) {
  **      to start/stop monitoring for "all pids").
  **      If a pid belongs to a valid process, then the following expression is non-NULL:
  **          pid_task(find_vpid(pid), PIDTYPE_PID)
- * - Check that the caller has the right permissions (-EPERM)
- *      For the first two commands, we must be root (see the current_uid() macro).
- *      For the last two commands, the following logic applies:
- *        - is the calling process root? if so, all is good, no doubts about permissions.
- *        - if not, then check if the 'pid' requested is owned by the calling process
- *        - also, if 'pid' is 0 and the calling process is not root, then access is denied
- *          (monitoring all pids is allowed only for root, obviously).
- *      To determine if two pids have the same owner, use the helper function provided above in this file.
+ **- Check that the caller has the right permissions (-EPERM)
+ * *     For the first two commands, we must be root (see the current_uid() macro).
+ * *     For the last two commands, the following logic applies:
+ * *       - is the calling process root? if so, all is good, no doubts about permissions.
+ * *       - if not, then check if the 'pid' requested is owned by the calling process
+ * *       - also, if 'pid' is 0 and the calling process is not root, then access is denied
+ * *         (monitoring all pids is allowed only for root, obviously).
+ * *     To determine if two pids have the same owner, use the helper function provided above in this file.
  * - Check for correct context of commands (-EINVAL):
- *     a) Cannot de-intercept a system call that has not been intercepted yet.
- *     b) Cannot stop monitoring for a pid that is not being monitored, or if the
- *        system call has not been intercepted yet.
+ * *    a) Cannot de-intercept a system call that has not been intercepted yet.
+ * *    b) Cannot stop monitoring for a pid that is not being monitored, or if the
+ * *       system call has not been intercepted yet.
  * - Check for -EBUSY conditions:
- *     a) If intercepting a system call that is already intercepted.
- *     b) If monitoring a pid that is already being monitored.
+ * *    a) If intercepting a system call that is already intercepted.
+ * *    b) If monitoring a pid that is already being monitored.
  * - If a pid cannot be added to a monitored list, due to no memory being available,
  *   an -ENOMEM error code should be returned.
  *
@@ -347,15 +347,45 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
     if(cmd == REQUEST_SYSCALL_RELEASE || cmd == REQUEST_SYSCALL_INTERCEPT){
       // user must be root to call these, uid will be 0
       if(current_uid().val == 0){
+        if(cmd == REQUEST_SYSCALL_RELEASE){
+          // check if syscall is being currently intercepted
+          if(my_table[syscall]->intercepted == 0){
+
+          }
+          return -EINVAL
+        } else {
+          // check if intercepting an already intercepted call
+          if(my_table[syscall]->intercepted == 1){
+
+          }
+          return -EBUSY
+        }
 
       }
+      return -EPERM
     }
     else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
       // check if current PID actually exists
       if (pid >= 0) {
         // check if pid is above 0
         if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
+          // check if user is root
+          if(current_uid().val == 0 || check_pid_from_list((pid_t) pid, current->pid) == 0 && pid == 0){
+              // check if syscall has been intercepted and pid is being monitored for stoping monitoring
+              if(cmd == REQUEST_STOP_MONITORING){
+                if(my_tablep[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) != 0){
 
+                }
+                return -EINVAL
+              } else {
+                // check if trying to monitor a monitored pid
+                if(my_tablep[syscall]->intercepted != 0 && check_pid_monitored(syscall, (pid_t)pid) == 0){
+
+                }
+                return -EBUSY
+              }
+          }
+          return -EPERM
         }
       }
     }
@@ -388,7 +418,7 @@ static int init_function(void) {
   // lock syscall table
   pid_lock(&calltable_lock);
   // set call table to writable
-  set_addr_rw(sys_call_table);
+  set_addr_rw((unsigned long)sys_call_table);
   // set orig_custom_syscall to be the function at MY_CUSTOM_SYSCALL
   orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
   // replace call in table with the custom syscall
@@ -397,7 +427,7 @@ static int init_function(void) {
   orig_exit_group = sys_call_table[__NR_exit_group];
   sys_call_table[__NR_exit_group] = &my_exit_group;
   // set call table to read only
-  set_addr_ro(sys_call_table);
+  set_addr_ro((unsigned long)sys_call_table);
   // unlock the call table
   pid_unlock(&calltable_lock)
   // lock pidlists
@@ -425,12 +455,12 @@ static void exit_function(void){
   // lock the call table
   pid_lock(&calltable_lock);
   // set the table to writeable
-  set_addr_rw(sys_call_table);
+  set_addr_rw((unsigned long)sys_call_table);
   // set the original system calls in place
   sys_call_table[MY_CUSTOM_SYSCALL] = orig_custom_syscall
   sys_call_table[__NR_exit_group] = orig_exit_group
   // set the table to read only
-  set_addr_ro(sys_call_table);
+  set_addr_ro((unsigned long)sys_call_table);
   // lock the call Table
   pid_unlock(&calltable_lock);
 }
