@@ -518,6 +518,7 @@ long (*orig_custom_syscall)(void);
  * - Ensure synchronization as needed.
  */
 static int init_function(void) {
+  int ctr;
   // lock syscall table
   spin_lock(&calltable_lock);
   // set call table to writable
@@ -536,7 +537,7 @@ static int init_function(void) {
   // lock pidlists
   spin_lock(&pidlist_lock);
   // init all the list heads
-  for(int ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
+  for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
     INIT_LIST_HEAD(&(table[ctr].my_list));
   }
   // unlock pidlist
