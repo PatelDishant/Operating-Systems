@@ -404,13 +404,13 @@ This helper function replaces the system call syscall with an interceptor functi
 */
 long request_syscall_intercept(int syscall){
   // lock the syscall table
-  pid_lock(&calltable_lock);
+  spin_lock(&calltable_lock);
   // lock my table
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   //rw for call Table
   set_addr_rw((unsigned long) sys_call_table);
   // store original syscall to my table
-  table[syscall].f = sys_call_table[syscall]
+  table[syscall].f = sys_call_table[syscall];
   // change syscall to generic intercept function
   sys_call_table[syscall] = &interceptor();
   // set the intercepted flag to 1
@@ -418,9 +418,9 @@ long request_syscall_intercept(int syscall){
   // set ro for call table
   set_addr_ro((unsigned long) sys_call_table);
   // unlock syscall table
-  pid_unlock(&pidlist_lock);
+  spin_unlock(&pidlist_lock);
   // unlock my table
-  pid_unlock(&calltable_lock);
+  spin_unlock(&calltable_lock);
   return (long) 0;
 }
 
@@ -429,21 +429,21 @@ This helper function releases the interceptor
 */
 long request_syscall_release(int syscall){
   // lock the system call table
-  pid_lock(&calltable_lock);
+  spin_lock(&calltable_lock);
   // lock table
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   // clear table list
   destroy_list(syscall);
   set_addr_rw((unsigned long) sys_call_table);
   // restore original system call
-  sys_call_table[syscall]=table[syscall].f
+  sys_call_table[syscall]=table[syscall].f;
   // wipe the stored syscall function
-  table[syscall].f = NULL
+  table[syscall].f = NULL;
   set_addr_ro((unsigned long) sys_call_table);
   // unlock table
-  pid_unlock(&pidlist_lock);
+  spin_unlock(&pidlist_lock);
   // unlock system call table
-  pid_unlock(&calltable_lock);
+  spin_unlock(&calltable_lock);
   return (long) 0;
 }
 
@@ -452,27 +452,28 @@ This helper function starts monitoring a pid given an intercepted system call
 */
 long request_start_monitoring(int syscall, int pid){
   // lock table
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
-  int result = 0;
+  int result;
+  result = 0;
   if (pid == 0){
     // check if monitored was 1 before, then clear the list
     if (table[syscall.monitored >= 1){
       destroy_list(syscall);
     }
     // set monitored to 2, no need to add any pids to the list (blacklist)
-    table[syscall].monitored = 2
+    table[syscall].monitored = 2;
   }
   // else only that given pid will be monitored
   else {
     if(table[syscall].monitored != 2){
       // check if monitoring everything already, in that case nothing should be done
-      table[syscall].monitored = 1
+      table[syscall].monitored = 1;
       result = add_pid_sysc((pid_t) pid, syscall);
     }
   }
   // unlock table
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   return = (long) result;
 }
 
@@ -481,10 +482,10 @@ This helper function stops monitoring a given pid
 */
 long request_stop_monitoring(int syscall, int pid){
   // lock table
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   int result = 0;
   // check if monitored is set to 2
-  if(table[syscall].monitored = 2){
+  if(table[syscall].monitored == 2){
     // the pidlist there is a blacklist so add it to there
     result = (long) add_pid_sysc((pid_t) pid, syscall);
   } // else we remove normally
@@ -492,7 +493,7 @@ long request_stop_monitoring(int syscall, int pid){
     result = (long) del_pid_sysc((pid_t) pid, syscall);
   }
   // unlock table
-  pid_unlock(&pidlist_lock);
+  spin_unlock(&pidlist_lock);
   return = result;
 }
 
@@ -519,7 +520,7 @@ long (*orig_custom_syscall)(void);
  */
 static int init_function(void) {
   // lock syscall table
-  pid_lock(&calltable_lock);
+  spin_lock(&calltable_lock);
   // set call table to writable
   set_addr_rw((unsigned long)sys_call_table);
   // set orig_custom_syscall to be the function at MY_CUSTOM_SYSCALL
@@ -532,17 +533,17 @@ static int init_function(void) {
   // set call table to read only
   set_addr_ro((unsigned long)sys_call_table);
   // unlock the call table
-  pid_unlock(&calltable_lock)
+  spin_unlock(&calltable_lock);
   // lock pidlists
-  pid_lock(&pidlist_lock);
+  spin_lock(&pidlist_lock);
   // init all the list heads
   for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
     INIT_LIST_HEAD(&(table[ctr].my_list));
   }
   // unlock pidlist
-  pid_unlock(&pidlist_lock);
+  spin_unlock(&pidlist_lock);
 	return 0;
-}
+}spin_unlock
 
 /**
  * Module exits.
@@ -556,16 +557,16 @@ static int init_function(void) {
  */
 static void exit_function(void){
   // lock the call table
-  pid_lock(&calltable_lock);
+  spin_lock(&calltable_lock);
   // set the table to writeable
   set_addr_rw((unsigned long)sys_call_table);
   // set the original system calls in place
-  sys_call_table[MY_CUSTOM_SYSCALL] = orig_custom_syscall
-  sys_call_table[__NR_exit_group] = orig_exit_group
+  sys_call_table[MY_CUSTOM_SYSCALL] = orig_custom_syscall;
+  sys_call_table[__NR_exit_group] = orig_exit_group;
   // set the table to read only
   set_addr_ro((unsigned long)sys_call_table);
   // lock the call Table
-  pid_unlock(&calltable_lock);
+  spin_unlock(&calltable_lock);
 }
 
 module_init(init_function);
