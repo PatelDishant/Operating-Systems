@@ -371,37 +371,37 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
         }
       }
       return -EPERM;
-      }
-  } else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
-    // check if current PID actually exists
-    if (pid >= 0) {
-      if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
-        // check if user is root
-        if((current_uid() == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
-            // check if syscall has been intercepted and pid is being monitored for stoping monitoring
-            if(cmd == REQUEST_STOP_MONITORING){
-              if(table[syscall].intercepted != 0){
-                if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
-                  result = request_stop_monitoring(syscall, pid);
-                  return result;
-                }
-              }
-              return -EINVAL;
-            } else {
-              // request_start_monitoring
-              // check if trying to monitor a monitored pid
-              if(table[syscall].intercepted == 0){
-                if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) == 0){
-                  result = request_start_monitoring(syscall, pid);
-                  return result;
-                }
-              }
-              return -EBUSY;
-            }
-        }
-        return -EPERM;
-      }
-    }
+    } else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
+       // check if current PID actually exists
+       if (pid >= 0) {
+         if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
+           // check if user is root
+           if((current_uid() == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
+             // check if syscall has been intercepted and pid is being monitored for stoping monitoring
+             if(cmd == REQUEST_STOP_MONITORING){
+               if(table[syscall].intercepted != 0){
+                 if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
+                   result = request_stop_monitoring(syscall, pid);
+                   return result;
+                 }
+               }
+               return -EINVAL;
+             } else {
+               // request_start_monitoring
+               // check if trying to monitor a monitored pid
+               if(table[syscall].intercepted == 0){
+                 if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) == 0){
+                   result = request_start_monitoring(syscall, pid);
+                   return result;
+                 }
+               }
+               return -EBUSY;
+             }
+           }
+           return -EPERM;
+         }
+       }
+     }
   }
   return -EINVAL;
 }
