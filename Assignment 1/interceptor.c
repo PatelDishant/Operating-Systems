@@ -390,7 +390,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
             } else {
               // request_start_monitoring
               // check if trying to monitor a monitored pid
-              if(table[syscall].intercepted != 0){
+              if(table[syscall].intercepted == 0){
                 if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) == 0){
                   result = request_start_monitoring(syscall, pid);
                   return result;
@@ -479,7 +479,7 @@ long request_start_monitoring(int syscall, int pid){
     }
   }
   // unlock table
-  spin_lock(&pidlist_lock);
+  spin_unlock(&pidlist_lock);
   return (long) result;
 }
 
