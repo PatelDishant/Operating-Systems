@@ -349,7 +349,7 @@ long request_stop_monitoring(int syscall, int pid);
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
   long result;
   // check the syscall to make sure it passes
-  if((0<syscall) && (syscall <= NR_syscalls) && (syscall != MY_CUSTOM_SYSCALL)){
+  if((0<=syscall) && (syscall <= NR_syscalls) && (syscall != MY_CUSTOM_SYSCALL)){
     if(cmd == REQUEST_SYSCALL_RELEASE || cmd == REQUEST_SYSCALL_INTERCEPT){
       // user must be root to call these, uid will be 0
       if(current_uid() == 0){
@@ -371,10 +371,10 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
         }
       }
       return -EPERM;
-    } else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
+    }else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
        // check if current PID actually exists
        if (pid >= 0) {
-         if (!pid_task(find_vpid(pid), PIDTYPE_PID)) {
+         if (pid_task(find_vpid(pid), PIDTYPE_PID) != NULL || pid == 0) {
            // check if user is root
            if((current_uid() == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
              // check if syscall has been intercepted and pid is being monitored for stoping monitoring
