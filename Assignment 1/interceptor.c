@@ -412,7 +412,7 @@ long request_syscall_intercept(int syscall){
   // store original syscall to my table
   table[syscall].f = sys_call_table[syscall];
   // change syscall to generic intercept function
-  sys_call_table[syscall] = &interceptor();
+  sys_call_table[syscall] = &interceptor;
   // set the intercepted flag to 1
   table[syscall].intercepted = 1;
   // set ro for call table
@@ -451,14 +451,13 @@ long request_syscall_release(int syscall){
 This helper function starts monitoring a pid given an intercepted system call
 */
 long request_start_monitoring(int syscall, int pid){
+  int result = 0;
   // lock table
   spin_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
-  int result;
-  result = 0;
   if (pid == 0){
     // check if monitored was 1 before, then clear the list
-    if (table[syscall.monitored >= 1){
+    if (table[syscall].monitored >= 1){
       destroy_list(syscall);
     }
     // set monitored to 2, no need to add any pids to the list (blacklist)
@@ -474,16 +473,16 @@ long request_start_monitoring(int syscall, int pid){
   }
   // unlock table
   spin_lock(&pidlist_lock);
-  return = (long) result;
+  return (long) result;
 }
 
 /*
 This helper function stops monitoring a given pid
 */
 long request_stop_monitoring(int syscall, int pid){
+  int result = 0;
   // lock table
   spin_lock(&pidlist_lock);
-  int result = 0;
   // check if monitored is set to 2
   if(table[syscall].monitored == 2){
     // the pidlist there is a blacklist so add it to there
@@ -494,7 +493,7 @@ long request_stop_monitoring(int syscall, int pid){
   }
   // unlock table
   spin_unlock(&pidlist_lock);
-  return = result;
+  return result;
 }
 
 /**
@@ -537,13 +536,13 @@ static int init_function(void) {
   // lock pidlists
   spin_lock(&pidlist_lock);
   // init all the list heads
-  for(ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
+  for(int ctr = 0; ctr < NR_syscalls + 1 ; ctr ++){
     INIT_LIST_HEAD(&(table[ctr].my_list));
   }
   // unlock pidlist
   spin_unlock(&pidlist_lock);
 	return 0;
-}spin_unlock
+}
 
 /**
  * Module exits.
