@@ -281,13 +281,15 @@ void my_exit_group(int status) {
  * - Don't forget to call the original system call, so we allow processes to proceed as normal.
  */
 asmlinkage long interceptor(struct pt_regs reg) {
+  long result;
   // check if the syscall is being monitored for current pid
   int monitored = check_pid_monitored((int)reg.ax, current->pid);
   // log message if being monitored
   if (monitored > 0) {
     log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
   }
-  table[reg.ax].f(reg);
+  result = table[reg.ax].f(reg);
+  return result;
 }
 
 long request_syscall_intercept(int syscall);
@@ -345,6 +347,7 @@ long request_stop_monitoring(int syscall, int pid);
  *   you might be holding, before you exit the function (including error cases!).
  */
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
+  long result;
   // check the syscall to make sure it passes
   if(0<syscall && syscall < NR_syscalls && syscall != MY_CUSTOM_SYSCALL){
     if(cmd == REQUEST_SYSCALL_RELEASE || cmd == REQUEST_SYSCALL_INTERCEPT){
@@ -353,14 +356,16 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
         if(cmd == REQUEST_SYSCALL_RELEASE){
           // check if syscall is being currently intercepted
           if(table[syscall].intercepted != 0){
-            request_syscall_release(syscall);
+            result = request_syscall_release(syscall);
+            return result;
           }
           return -EINVAL;
         } else {
           // request_syscall_intercept
           // check if intercepting an already intercepted call
           if(table[syscall].intercepted != 1){
-            request_syscall_intercept(syscall);
+            result = request_syscall_intercept(syscall);
+            return result;
           }
           return -EBUSY;
         }
@@ -377,7 +382,8 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
             if(cmd == REQUEST_STOP_MONITORING){
               if(table[syscall].intercepted != 0){
                 if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
-                  request_stop_monitoring(syscall, pid);
+                  result = request_stop_monitoring(syscall, pid);
+                  return result;
                 }
               }
               return -EINVAL;
@@ -386,7 +392,8 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
               // check if trying to monitor a monitored pid
               if(table[syscall].intercepted != 0){
                 if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) == 0){
-                  request_start_monitoring(syscall, pid);
+                  result = request_start_monitoring(syscall, pid);
+                  return result;
                 }
               }
               return -EBUSY;
