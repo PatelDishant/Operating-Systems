@@ -476,6 +476,9 @@ long request_start_monitoring(int syscall, int pid){
       // check if monitoring everything already, in that case nothing should be done
       table[syscall].monitored = 1;
       result = add_pid_sysc((pid_t) pid, syscall);
+    } else if (table[syscall].monitored == 2){
+      // check if present in the blacklist
+      result = del_pid_sysc((pid_t) pid, syscall);
     }
   }
   // unlock table
