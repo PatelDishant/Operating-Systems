@@ -462,7 +462,7 @@ long request_start_monitoring(int syscall, int pid){
   // lock table
   spin_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
-  if (pid == 0){
+  if (pid == 0 && current_uid() == 0){
     // check if monitored was 1 before, then clear the list
     if (table[syscall].monitored >= 1){
       destroy_list(syscall);
@@ -471,14 +471,18 @@ long request_start_monitoring(int syscall, int pid){
     table[syscall].monitored = 2;
   }
   // else only that given pid will be monitored
-  else {
+  else if (pid == 0 && current_uid() != 0) {
+    return -EPERM;
+  }else {
     if(table[syscall].monitored != 2){
       // check if monitoring everything already, in that case nothing should be done
       table[syscall].monitored = 1;
       result = add_pid_sysc((pid_t) pid, syscall);
     } else if (table[syscall].monitored == 2){
       // check if present in the blacklist
-      result = del_pid_sysc((pid_t) pid, syscall);
+      if (check_pid_monitored(syscall, (pid_t) pid) == 1){
+        result = del_pid_sysc((pid_t) pid, syscall);
+      }
     }
   }
   // unlock table
