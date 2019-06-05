@@ -371,7 +371,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
           } else {
             result = -EBUSY;
           }
-          spin_lock(&pidlist_lock);
+          spin_unlock(&pidlist_lock);
         }
       } else {
         result = -EPERM;
