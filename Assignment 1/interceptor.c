@@ -458,7 +458,7 @@ long request_syscall_release(int syscall){
 This helper function starts monitoring a pid given an intercepted system call
 */
 long request_start_monitoring(int syscall, int pid){
-  long result;
+  long result= 0;
   // lock table
   spin_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
