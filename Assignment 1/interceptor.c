@@ -381,32 +381,34 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
        if (pid >= 0) {
          if (pid_task(find_vpid(pid), PIDTYPE_PID) != NULL || pid == 0) {
            // check if user is root
-           spin_lock(&pidlist_lock);
            if((current_uid() == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
              // check if syscall has been intercepted and pid is being monitored for stoping monitoring
              if(cmd == REQUEST_STOP_MONITORING){
+               spin_lock(&pidlist_lock);
                if(table[syscall].intercepted == 1){
                  if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
                    result = request_stop_monitoring(syscall, pid);
                  }
                } else {
                  result = -EINVAL;
-             }
+               }
+               spin_unlock(&pidlist_lock);
              } else {
                // request_start_monitoring
                // check if trying to monitor a monitored pid
+               spin_lock(&pidlist_lock);
                if(table[syscall].intercepted == 1){
-                 if((table[syscall].monitored == 2 && pid == 0) || (table[syscall].monitored == 2 && check_pid_monitored(syscall, (pid_t)pid) == 1) ||  (table[syscall].monitored != 2 && check_pid_monitored(syscall, (pid_t)pid) == 0)){
+                 if((table[syscall].monitored == 2 && (check_pid_monitored(syscall, (pid_t)pid) == 1 || pid == 0) ||  (table[syscall].monitored != 2 && check_pid_monitored(syscall, (pid_t)pid) == 0)){
                    result = request_start_monitoring(syscall, pid);
                  }
                } else {
                  result = -EBUSY;
                }
+               spin_unlock(&pidlist_lock);
              }
            } else {
              result = -EPERM;
            }
-           spin_unlock(&pidlist_lock);
          } else {
            result = -EINVAL;
          }
