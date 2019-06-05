@@ -347,7 +347,7 @@ long request_stop_monitoring(int syscall, int pid);
  *   you might be holding, before you exit the function (including error cases!).
  */
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
-  long result;
+  long result = 0;
   // check the syscall to make sure it passes
   if((0<=syscall) && (syscall <= NR_syscalls) && (syscall != MY_CUSTOM_SYSCALL)){
     if(cmd == REQUEST_SYSCALL_RELEASE || cmd == REQUEST_SYSCALL_INTERCEPT){
@@ -355,55 +355,69 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
       if(current_uid() == 0){
         if(cmd == REQUEST_SYSCALL_RELEASE){
           // check if syscall is being currently intercepted
+          spin_lock(&pidlist_lock);
           if(table[syscall].intercepted == 1){
             result = request_syscall_release(syscall);
-            return result;
+          } else {
+            result = -EINVAL;
           }
-          return -EINVAL;
+          spin_unlock(&pidlist_lock);
         } else {
           // request_syscall_intercept
           // check if intercepting an already intercepted call
+          spin_lock(&pidlist_lock);
           if(table[syscall].intercepted == 0){
             result = request_syscall_intercept(syscall);
-            return result;
+          } else {
+            result = -EBUSY;
           }
-          return -EBUSY;
+          spin_lock(&pidlist_lock);
         }
+      } else {
+        result = -EPERM;
       }
-      return -EPERM;
     }else if (cmd == REQUEST_STOP_MONITORING || cmd == REQUEST_START_MONITORING){
        // check if current PID actually exists
        if (pid >= 0) {
          if (pid_task(find_vpid(pid), PIDTYPE_PID) != NULL || pid == 0) {
            // check if user is root
+           spin_lock(&pidlist_lock);
            if((current_uid() == 0) || (check_pid_from_list((pid_t) pid, current->pid) == 0 && pid != 0)){
              // check if syscall has been intercepted and pid is being monitored for stoping monitoring
              if(cmd == REQUEST_STOP_MONITORING){
                if(table[syscall].intercepted == 1){
                  if(table[syscall].monitored == 2 || check_pid_monitored(syscall, (pid_t)pid) != 0){
                    result = request_stop_monitoring(syscall, pid);
-                   return result;
                  }
-               }
-               return -EINVAL;
+               } else {
+                 result = -EINVAL;
+             }
              } else {
                // request_start_monitoring
                // check if trying to monitor a monitored pid
                if(table[syscall].intercepted == 1){
                  if((table[syscall].monitored == 2 && pid == 0) || (table[syscall].monitored == 2 && check_pid_monitored(syscall, (pid_t)pid) == 1) ||  (table[syscall].monitored != 2 && check_pid_monitored(syscall, (pid_t)pid) == 0)){
                    result = request_start_monitoring(syscall, pid);
-                   return result;
                  }
+               } else {
+                 result = -EBUSY;
                }
-               return -EBUSY;
              }
+           } else {
+             result = -EPERM;
            }
-           return -EPERM;
+           spin_unlock(&pidlist_lock);
+         } else {
+           result = -EINVAL;
          }
+       } else {
+         result = -EINVAL;
        }
      }
+  } else {
+    result = -EINVAL;
   }
-  return -EINVAL;
+  return result;
 }
 
 /*
@@ -412,8 +426,6 @@ This helper function replaces the system call syscall with an interceptor functi
 long request_syscall_intercept(int syscall){
   // lock the syscall table
   spin_lock(&calltable_lock);
-  // lock my table
-  spin_lock(&pidlist_lock);
   //rw for call Table
   set_addr_rw((unsigned long) sys_call_table);
   // store original syscall to my table
@@ -424,8 +436,6 @@ long request_syscall_intercept(int syscall){
   table[syscall].intercepted = 1;
   // set ro for call table
   set_addr_ro((unsigned long) sys_call_table);
-  // unlock syscall table
-  spin_unlock(&pidlist_lock);
   // unlock my table
   spin_unlock(&calltable_lock);
   return (long) 0;
@@ -437,8 +447,6 @@ This helper function releases the interceptor
 long request_syscall_release(int syscall){
   // lock the system call table
   spin_lock(&calltable_lock);
-  // lock table
-  spin_lock(&pidlist_lock);
   // clear table list
   destroy_list(syscall);
   set_addr_rw((unsigned long) sys_call_table);
@@ -447,8 +455,6 @@ long request_syscall_release(int syscall){
   // wipe the stored syscall function
   table[syscall].f = NULL;
   set_addr_ro((unsigned long) sys_call_table);
-  // unlock table
-  spin_unlock(&pidlist_lock);
   // unlock system call table
   spin_unlock(&calltable_lock);
   return (long) 0;
@@ -459,15 +465,13 @@ This helper function starts monitoring a pid given an intercepted system call
 */
 long request_start_monitoring(int syscall, int pid){
   long result= 0;
-  // lock table
-  spin_lock(&pidlist_lock);
   // check if pid = 0, then all pids to be monitored
   if (pid == 0){
     if (current_uid() == 0){
       // check if monitored was 1 before, then clear the list
-      //if (table[syscall].monitored >= 1){
-      destroy_list(syscall);
-      //}
+      if (table[syscall].monitored >= 1){
+        destroy_list(syscall);
+      }
       // set monitored to 2, no need to add any pids to the list (blacklist)
       table[syscall].monitored = 2;
     } else {
@@ -485,8 +489,6 @@ long request_start_monitoring(int syscall, int pid){
       }
     }
   }
-  // unlock table
-  spin_unlock(&pidlist_lock);
   return result;
 }
 
@@ -495,8 +497,6 @@ This helper function stops monitoring a given pid
 */
 long request_stop_monitoring(int syscall, int pid){
   int result = 0;
-  // lock table
-  spin_lock(&pidlist_lock);
   // check if monitored is set to 2
   if(table[syscall].monitored == 2){
     // the pidlist there is a blacklist so add it to there
@@ -505,8 +505,6 @@ long request_stop_monitoring(int syscall, int pid){
   else {
     result = (long) del_pid_sysc((pid_t) pid, syscall);
   }
-  // unlock table
-  spin_unlock(&pidlist_lock);
   return result;
 }
 
