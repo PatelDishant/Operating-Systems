@@ -136,23 +136,28 @@ char *find_physpage(addr_t vaddr, char type) {
 
 	// IMPLEMENTATION NEEDED
 	// Use top-level page directory to get pointer to 2nd-level page table
-  pgdir_entry_t *pgTbl = pgdir[idx];
+  	pgdir_entry_t *pgTbl = &(pgdir_entry_t) pgdir[idx];
 
 
 	// Use vaddr to get index into 2nd-level page table and initialize 'p'
-  idx = PGTBL_INDEX(vaddr);
-  p = pgTbl[idx];
+	idx = PGTBL_INDEX(vaddr);
+	p = pgTbl[idx];
 
 	// Check if p is valid or not, on swap or not, and handle appropriately
-  if(p.frame & PG_VALID == 0){
-    // 
-  }
-
+	if(p->frame & PG_VALID == 0){
+		int frameLocation = allocate_frame(p);
+		if(p->frame & PG_ONSWAP == 0){
+			init_frame(frameLocation, vaddr);
+		}
+	}
 
 	// Make sure that p is marked valid and referenced. Also mark it
 	// dirty if the access type indicates that the page will be written to.
-
-
+	p->frame = p->frame |= PG_VALID;
+	p->frame = p->frame |= PG_REF;
+	if(type == 'M') {
+		p->frame = p->frame |= PG_DIRTY;
+	}
 
 	// Call replacement algorithm's ref_fcn for this page
 	ref_fcn(p);
