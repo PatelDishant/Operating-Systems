@@ -39,14 +39,14 @@ int allocate_frame(pgtbl_entry_t *p) {
 		// All frames were in use, so victim frame must hold some page
 		// Write victim page to swap, if needed, and update pagetable
 		// IMPLEMENTATION NEEDED
-		pgtbl_entry_t *swapFrame = coremap[frame].pte;
-		swapFrame->frame |= PG_ONSWAP;
-		if(!(swapFrame->frame & PG_DIRTY)){
+		pgtbl_entry_t *swapPage = coremap[frame].pte;
+		swapPage->frame |= PG_ONSWAP;
+		if(!(swapPage->frame & PG_DIRTY)){
 			evict_clean_count++;
 		} else {
 			evict_dirty_count++;
 		}
-		swap_pageout(swapFrame->frame >> PAGE_SHIFT, swapFrame->swap_off);
+		swap_pageout(swapPage->frame >> PAGE_SHIFT, swapPage->swap_off);
 	}
 
 	// Record information for virtual page that will now be stored in frame
@@ -140,18 +140,19 @@ char *find_physpage(addr_t vaddr, char type) {
 	pgtbl_entry_t *p=NULL; // pointer to the full page table entry for vaddr
 	unsigned idx = PGDIR_INDEX(vaddr); // get index into page directory
 
+	// IMPLEMENTATION NEEDED
 	// Use top-level page directory to get pointer to 2nd-level page table
   	pgdir_entry_t *secLvl = &pgdir[idx];
 
-	// gotta check if that table has been initialized first...
+	// Use vaddr to get index into 2nd-level page table and initialize 'p'
+
 	if (secLvl->pde == 0) {
-		pgdir[idx] =  init_second_level();
+		pgdir[idx] = init_second_level();
 		*secLvl = pgdir[idx];
 		secLvl->pde ^= PG_VALID;
 	}
 	pgtbl_entry_t *pgTbl = (pgtbl_entry_t *) pgdir[idx].pde;
 
-	// Use vaddr to get index into 2nd-level page table and initialize 'p'
 	idx = PGTBL_INDEX(vaddr);
 	p = &pgTbl[idx];
 
@@ -163,8 +164,8 @@ char *find_physpage(addr_t vaddr, char type) {
 			init_frame(frameLocation, vaddr);
 		} else {
 			swap_pagein(p->frame >> PAGE_SHIFT, p->swap_off);
-			p->frame ^= PG_ONSWAP;
 		}
+		p->frame = frameLocation << PAGE_SHIFT;
 		p->frame |= PG_VALID;
 	} else {
 		hit_count ++;
