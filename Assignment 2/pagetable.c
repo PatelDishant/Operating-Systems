@@ -140,10 +140,16 @@ char *find_physpage(addr_t vaddr, char type) {
 	pgtbl_entry_t *p=NULL; // pointer to the full page table entry for vaddr
 	unsigned idx = PGDIR_INDEX(vaddr); // get index into page directory
 
-	// IMPLEMENTATION NEEDED
 	// Use top-level page directory to get pointer to 2nd-level page table
-  	pgtbl_entry_t *pgTbl = (pgtbl_entry_t *)pgdir[idx].pde;
+  	pgdir_entry_t *secLvl = &pgdir[idx];
 
+	// gotta check if that table has been initialized first...
+	if (secLvl->pde == 0) {
+		pgdir[idx] =  init_second_level();
+		*secLvl = pgdir[idx];
+		secLvl->pde ^= PG_VALID;
+	}
+	pgtbl_entry_t *pgTbl = (pgtbl_entry_t *) pgdir[idx].pde;
 
 	// Use vaddr to get index into 2nd-level page table and initialize 'p'
 	idx = PGTBL_INDEX(vaddr);
@@ -159,13 +165,13 @@ char *find_physpage(addr_t vaddr, char type) {
 			swap_pagein(p->frame >> PAGE_SHIFT, p->swap_off);
 			p->frame ^= PG_ONSWAP;
 		}
+		p->frame |= PG_VALID;
 	} else {
 		hit_count ++;
 	}
 
 	// Make sure that p is marked valid and referenced. Also mark it
 	// dirty if the access type indicates that the page will be written to.
-	p->frame |= PG_VALID;
 	p->frame |= PG_REF;
 	ref_count ++;
 	if(type == 'M' || type == 'S') {
