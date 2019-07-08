@@ -54,7 +54,6 @@ typedef struct {
 typedef struct { 
 	unsigned int frame; // if valid bit == 1, physical frame holding vpage
 	off_t swap_off;       // offset in swap file of vpage, if any
-	int nextOccurence; // INSERTED FOR OPT - NEXT OCCURENC OF PAGE IN REF STRING
 } pgtbl_entry_t;    
 
 extern void init_pagetable();
@@ -66,6 +65,7 @@ struct frame {
 	char in_use;       // True if frame is allocated, False if frame is free
 	pgtbl_entry_t *pte;// Pointer back to pagetable entry (pte) for page
 	                   // stored in this frame
+	int nextOccurence; // INSERTED FOR OPT - NEXT OCCURENC OF PAGE IN REF STRING
 };
 
 /* The coremap holds information about physical memory.

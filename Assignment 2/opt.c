@@ -24,7 +24,7 @@ int opt_evict() {
 	int longestTimeFrame = 0;
 	// go through the coremap, figure out what is the LARGEST nextOccurence number (unless -1)
 	for (int i = 0; i < memsize; i++) {
-		int iOccurenceTime = coremap[i].pte->nextOccurence;
+		int iOccurenceTime = coremap[i].nextOccurence;
 		if (iOccurenceTime > longestTimeFrame){
 			longestTimeFrame = iOccurenceTime;
 			vFrame = i;
@@ -44,10 +44,17 @@ void opt_ref(pgtbl_entry_t *p) {
 	FILE *tfp = stdin;
 	int MAXLINE = 256;
 	char buf[MAXLINE];
+	struct frame *findOccurence;
+	// find p in the coremap
+	for (int i = 0; i < memsize; i++) {
+		if (coremap[i].pte->frame == p->frame) {
+			findOccurence = &coremap[i];
+		}
+	}
 	// go through the coremap and minus one from their next access
 	for(int i = 0; i < memsize; i++){
 		if (!coremap[i].in_use){
-			coremap[i].pte->nextOccurence--;
+			coremap[i].nextOccurence--;
 		}
 	}
 	// find next occurence for p
@@ -58,7 +65,7 @@ void opt_ref(pgtbl_entry_t *p) {
 			exit(1);
 		}
 	}
-	p->nextOccurence = -1;
+	findOccurence->nextOccurence = -1;
 	int currentLine = 0;
 	addr_t pVaddr = 0;
 	addr_t cVaddr = 0;
@@ -70,7 +77,7 @@ void opt_ref(pgtbl_entry_t *p) {
 			} else if (currentLine > lineCtr){
 				sscanf(buf, "%c %lx", &type, &cVaddr);
 				if	(pVaddr == cVaddr) {
-					p->nextOccurence = currentLine - lineCtr;
+					findOccurence->nextOccurence = currentLine - lineCtr;
 					break;
 				}
 			}
