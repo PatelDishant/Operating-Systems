@@ -68,7 +68,6 @@ void opt_ref(pgtbl_entry_t *p) {
 			exit(1);
 		}
 	}
-	fflush(stdout);
 	findOccurence->nextOccurence = -1;
 	int currentLine = 0;
 	addr_t pVaddr = 0;
@@ -82,8 +81,6 @@ void opt_ref(pgtbl_entry_t *p) {
 				sscanf(buf, "%c %lx", &type, &cVaddr);
 				if	(pVaddr == cVaddr) {
 					findOccurence->nextOccurence = currentLine - lineCtr;
-					printf("%d", findOccurence->nextOccurence);
-					fflush(stdout);
 					break;
 				}
 			}

@@ -23,7 +23,7 @@ int clock_evict() {
 	// Loop through the coremap till a frame with ref bit of 0 is found
 	while (coremap[frameIndex].pte->frame & PG_REF) {
 		// Set the 1s to 0s and move to next frame
-		coremap[frameIndex].pte->frame &= PG_REF;
+		coremap[frameIndex].pte->frame ^= PG_REF;
 		frameIndex++;
 		// reset at the end
 		if (frameIndex == memsize) {

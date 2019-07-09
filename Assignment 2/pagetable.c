@@ -48,7 +48,6 @@ int allocate_frame(pgtbl_entry_t *p) {
 			evict_dirty_count++;
 		}
 		swapPage->swap_off = swap_pageout(swapPage->frame >> PAGE_SHIFT, swapPage->swap_off);
-		printf("\nP Out: %d\n", swapPage->swap_off);
 	}
 
 	// Record information for virtual page that will now be stored in frame
@@ -160,19 +159,12 @@ char *find_physpage(addr_t vaddr, char type) {
 
 	// Check if p is valid or not, on swap or not, and handle appropriately
 	if(!(p->frame & PG_VALID)){
-		printf("Reaching Valid Block\n");
-		fflush(stdout);
 		miss_count ++;
 		int frameLocation = allocate_frame(p);
 		if(!(p->frame & PG_ONSWAP)){
-			printf("Initializing frame\n");
-			fflush(stdout);
 			init_frame(frameLocation, vaddr);
 		} else {
-			printf("Trying to swap\n");
-			fflush(stdout);
 			swap_pagein(frameLocation, p->swap_off);
-			printf("\nP IN%d\n", p->swap_off);
 		}
 		p->frame = frameLocation << PAGE_SHIFT;
 		p->frame |= PG_VALID;
