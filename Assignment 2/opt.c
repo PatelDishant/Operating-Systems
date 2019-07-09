@@ -43,6 +43,7 @@ int opt_evict() {
  * Input: The page table entry for the page that is being accessed.
  */
 void opt_ref(pgtbl_entry_t *p) {
+	printf("entered opt_ref");
 	FILE *tfp = stdin;
 	int MAXLINE = 256;
 	char buf[MAXLINE];
