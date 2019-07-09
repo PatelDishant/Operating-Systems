@@ -55,6 +55,7 @@ void opt_ref(pgtbl_entry_t *p) {
 	for (int i = 0; i < memsize; i++) {
 		if (coremap[i].pte->frame == p->frame) {
 			findOccurence = &coremap[i];
+			break;
 		}
 	}
 	printf("frame was found");

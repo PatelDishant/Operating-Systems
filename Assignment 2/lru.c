@@ -25,8 +25,8 @@ int lru_evict() {
 	int frameIndex;
 	// Loop through the list to find the smallest refNumber (i.e. least frequently used)
 	for(frameIndex = 0; frameIndex < memsize; frameIndex++) {
-		if(leastReferredValue > coremap[frameIndex]->frame.refNumber) {
-			leastReferredValue = coremap[frameIndex]->frame.refNumber;
+		if(leastReferredValue > coremap[frameIndex].refNumber) {
+			leastReferredValue = coremap[frameIndex].refNumber;
 			leastReferredIndex = frameIndex;
 		}
 	}
@@ -38,7 +38,14 @@ int lru_evict() {
  * Input: The page table entry for the page that is being accessed.
  */
 void lru_ref(pgtbl_entry_t *p) {
-	p->frame.refNumber = ++referenceNumber;
+	int findOccurence = -1;
+	for (int i = 0; i < memsize; i++) {
+		if (coremap[i].pte->frame == p->frame) {
+			findOccurence = &coremap[i];
+			break;
+		}
+	}
+	coremap[findOccurence].refNumber = ++referenceNumber;
 	return;
 }
 
