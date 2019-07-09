@@ -66,6 +66,7 @@ struct frame {
 	pgtbl_entry_t *pte;// Pointer back to pagetable entry (pte) for page
 	                   // stored in this frame
 	int nextOccurence; // INSERTED FOR OPT - NEXT OCCURENC OF PAGE IN REF STRING
+	int refNumber; // REFERENCE NUMBER TO KEEP TRACK OF MOST/LEAST RECENTLY USED
 };
 
 /* The coremap holds information about physical memory.
