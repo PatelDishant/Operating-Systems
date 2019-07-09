@@ -41,11 +41,11 @@ void lru_ref(pgtbl_entry_t *p) {
 	int findOccurence = -1;
 	for (int i = 0; i < memsize; i++) {
 		if (coremap[i].pte->frame == p->frame) {
-			findOccurence = &coremap[i];
+			findOccurence = i;
 			break;
 		}
 	}
-	coremap[findOccurence].refNumber = ++referenceNumber;
+	coremap[findOccurence].refNumber += 1;
 	return;
 }
 
