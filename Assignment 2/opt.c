@@ -11,7 +11,14 @@ extern int debug;
 
 extern struct frame *coremap;
 
-// imported globals and lineCtr for the tracefile
+// import needed tracefile and set up global variables
+
+struct refString{
+	addr_t vaddr;
+	struct refString *next;
+};
+
+struct refString *refHead;
 
 extern char* tracefile;
 
@@ -42,53 +49,40 @@ int opt_evict() {
  * needed by the opt algorithm.
  * Input: The page table entry for the page that is being accessed.
  */
-void opt_ref(pgtbl_entry_t *p) {
-	FILE *tfp = stdin;
-	int MAXLINE = 256;
-	char buf[MAXLINE];
+void opt_ref(pgtbl_entry_t *p) {	
+
 	struct frame *findOccurence;
-	// find p in the coremap
+	// find p in the coremap & minus one from all entry next access
 	for (int i = 0; i < memsize; i++) {
-		if (coremap[i].pte->frame == p->frame) {
-			findOccurence = &coremap[i];
+		if (coremap[i].in_use){
+			int *nOccur = &coremap[i].nextOccurence;
+			if (*nOccur > -1)
+				coremap[i].nextOccurence--;
+			if (coremap[i].pte->frame == p->frame) {
+				findOccurence = &coremap[i];
+			}
+		}
+	}
+	
+	// find next occurence for p
+	// loop through refString struct from point lineCtr
+	struct refString *currentRef = refHead->next;
+	addr_t vaddr = refHead->vaddr;
+	int steps = 1;
+	while (currentRef) {
+		if (currentRef->vaddr == vaddr){
+			findOccurence->nextOccurence = steps;
 			break;
 		}
+		currentRef = currentRef->next;
+		steps++;
 	}
-	// go through the coremap and minus one from their next access
-	for(int i = 0; i < memsize; i++){
-		if (!coremap[i].in_use){
-			coremap[i].nextOccurence--;
-		}
-	}
-	// find next occurence for p
-	// open ref string file at line lineCtr, keep going until same vaddr is found
-	if(tracefile!= NULL) {
-		if((tfp = fopen(tracefile, "r")) == NULL) {
-			perror("Error in reading tracefile for OPT");
-			exit(1);
-		}
-	}
-	findOccurence->nextOccurence = -1;
-	int currentLine = 0;
-	addr_t pVaddr = 0;
-	addr_t cVaddr = 0;
-	char type;
-	while(fgets(buf, MAXLINE, tfp) != NULL) {
-		if(buf[0] != '='){
-			if (currentLine == lineCtr){ 
-				sscanf(buf, "%c %lx", &type, &pVaddr);
-			} else if (currentLine > lineCtr){
-				sscanf(buf, "%c %lx", &type, &cVaddr);
-				if	(pVaddr == cVaddr) {
-					findOccurence->nextOccurence = currentLine - lineCtr;
-					break;
-				}
-			}
-			
-		}
-	}
-	fclose(tfp);
+
+	// offset refString by one and free the previous head
 	// increment the lineCtr
+	struct refString * temp = refHead;
+	refHead = refHead->next;
+	free(temp);
 	lineCtr++;
 	return;
 }
@@ -97,6 +91,41 @@ void opt_ref(pgtbl_entry_t *p) {
  * replacement algorithm.
  */
 void opt_init() {
+
+	// set up the head of the refString
 	lineCtr = 0;
+	int fileSize = 0;
+	refHead = (struct refString *)malloc(sizeof(struct refString));
+
+	// go through tracefile and set up refString
+	FILE *tfp = stdin;
+	int MAXLINE = 256;
+	char buf[MAXLINE];
+	char type;
+	struct refString *newRef;
+	struct refString *prevRef;
+	if(tracefile != NULL) {
+		if((tfp = fopen(tracefile, "r")) == NULL) {
+			perror("Error opening tracefile:");
+			exit(1);
+		}
+	}
+	while(fgets(buf, MAXLINE, tfp) != NULL) {
+		if(buf[0] != '='){
+			if (fileSize == 0){ 
+				sscanf(buf, "%c %lx", &type, &(refHead->vaddr));
+				fileSize++;
+				prevRef = refHead;
+			} else if (fileSize > 0){
+				newRef = (struct refString *)malloc(sizeof(struct refString));
+				sscanf(buf, "%c %lx", &type, &(newRef->vaddr));
+				prevRef->next = newRef;
+				prevRef = newRef;
+				prevRef->next = NULL;
+				fileSize++;
+			}
+		}
+	}
+	fclose(tfp);
 }
 
