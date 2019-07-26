@@ -9,11 +9,11 @@
 unsigned char * disk;
 
 /*
- * Maps a *.img file to an accessible location.
+ * Maps a .img file to an accessible location.
  * 
  * img_name: a .img file that you wish to mount.
  */
-void map(char * img_name) {
+void map(char* img_name) {
 
     int fd = open(img_name, O_RDWR);
 
@@ -22,4 +22,14 @@ void map(char * img_name) {
         perror("mmap");
         exit(1);
     }
+}  
+
+/*
+ * Splits a given string into an array based on the delimiter '/'.
+ * 
+ * ext2_name: path string to directory
+ * 
+ * return: a heap allocated array of the split string
+ */
+char** split(char* ext2_name){
 }

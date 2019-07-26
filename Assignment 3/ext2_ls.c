@@ -6,20 +6,25 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "ext2.h"
-#include "mount.h"
+#include "helper.h"
 
 int a_flag = 0;
-char * img_name = NULL;
-char * ext2_path = NULL;
+char* img_name = NULL;
+char* ext2_path = NULL;
 
 /*
- * This function parses the arguments passed in through to main.
- * Assigns them to the appropriate locations.
- * 
- * argc: number of arguments passed
- * argv: the arguments passed
+ * CURRENTLY BEING MADE BY KOSTYA
+ * THIS WOULD BE REALLY CONVENIENT ON A SCRUM BOARD..
+ * MIGHT MAKE ONE ON SATURDAY OR SOMETHING
  */
-void parse_arguments(int argc, char *argv[]){
+
+/*
+ * Parses arguments in a set order to global variables respectively.
+ * 
+ * argc: count(arguments)
+ * argv: arguments
+ */
+void parse_arguments(int argc, char* argv[]){
         for (int i = 1; i < argc; i ++) {
         if (i == 1) {
             img_name = argv[i];
@@ -34,13 +39,23 @@ void parse_arguments(int argc, char *argv[]){
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 
     // parse through the arguments
     parse_arguments(argc, argv);
 
     // open disk image
     map(img_name);
+
+    // split up the ext2_path into an array delimited by '/'
+    ext2_path = split(ext2_path);
+
+    // locate root inode
+    // go through inodes to find directory
+        // if directory not found throw ENOENT error
+    // read through directory entries
+        // if a_flag is true include . && .. directory entries
+
 
 return 1;
 }
