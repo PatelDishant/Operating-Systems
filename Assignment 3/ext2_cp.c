@@ -7,21 +7,39 @@
 #include <sys/mman.h>
 #include "ext2.h"
 
-unsigned char *disk;
+char * img_name = NULL;
+char * native_path = NULL;
+char * ext2_path = NULL;
 
-int main(int argc, char **argv) {
-
-    if(argc != 2) {
-        fprintf(stderr, "Usage: ext2_ls <image file name> <absolute path on virtual disk>\n");
-        exit(1);
+/*
+ * This function parses the arguments passed in through to main.
+ * Assigns them to the appropriate locations.
+ * 
+ * argc: number of arguments passed
+ * argv: the arguments passed
+ */
+void parse_arguments(int argc, char *argv[]){
+        for (int i = 1; i < argc; i ++) {
+        if (i == 1) {
+            img_name = argv[i];
+        } else if(i == 2){
+            native_path = argv[i];
+        } else if( i == 3) {
+            ext2_path = argv[i];
+        } else {
+            pperror("Usage: ext2_cp <name of ext2 formatted virtual disk> <path to file on native system> <absolute path on ext2 disk>");
+            exit(1);
+        }
     }
-    int fd = open(argv[1], O_RDWR);
+}
 
-    disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if(disk == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
+int main(int argc, char *argv[]) {
+
+    // parse through the arguments
+    parse_arguments(argc, argv);
+
+    // open disk image
+    map(img_name);
 
 return 1;
 }
