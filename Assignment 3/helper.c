@@ -32,4 +32,35 @@ void map(char* img_name) {
  * return: a heap allocated array of the split string
  */
 char** split(char* ext2_name){
+    // figure out how large of an array we need
+    int size = 0;
+    char* char_compare = ext2_name;
+    char* last_char;
+    char delim = '/';
+    while(*char_compare) {
+        if(char_compare == delim){
+            size++;
+        }
+        last_char = char_compare;
+        char_compare++;
+    }
+    // check if last_char was the delim - if true then -1 from size
+    if(last_char == delim){
+        size--;
+    }
+    char** result = malloc(sizeof(char*) * size);
+    // populate the array
+    if (result){
+        char* token = strtok(ext2_name, delim);
+        int ctr = 0;
+        while (token && ctr < size){
+            result[ctr] = token;
+            ctr++;
+            token = strdup(NULL, delim);
+        }
+    } else {
+        perror("Couldn't split input absolute path for ext2 system. Unsufficient heap space.");
+        exit(1);
+    }
+    return result;
 }

@@ -48,14 +48,19 @@ int main(int argc, char* argv[]) {
     map(img_name);
 
     // split up the ext2_path into an array delimited by '/'
-    ext2_path = split(ext2_path);
+    char** path_array = split(ext2_path);
 
     // locate root inode
+    struct ext2_super_block* sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
+    struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+    struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+    struct ext2_inode* root_inode = &root_inode[1];
     // go through inodes to find directory
-        // if directory not found throw ENOENT error
-    // read through directory entries
-        // if a_flag is true include . && .. directory entries
-
+    for(int ctr = 0; *(path_array + ctr); ctr++) {
+            // if directory not found throw ENOENT error
+        // read through directory entries
+            // if a_flag is true include . && .. directory entries
+    }
 
 return 1;
 }
