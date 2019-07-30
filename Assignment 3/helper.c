@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -37,27 +38,33 @@ char** split(char* ext2_name){
     char* char_compare = ext2_name;
     char* last_char;
     char delim = '/';
+    // if first char not delim then not absolute so return empty string
+    if(*char_compare != delim) {
+        return NULL;
+    }
     while(*char_compare) {
-        if(char_compare == delim){
+        if(*char_compare == delim){
             size++;
         }
         last_char = char_compare;
         char_compare++;
     }
     // check if last_char was the delim - if true then -1 from size
-    if(last_char == delim){
+    if(*last_char == delim){
         size--;
     }
-    char** result = malloc(sizeof(char*) * size);
+    char** result = malloc(sizeof(char*) * size + 1);
     // populate the array
-    if (result){
-        char* token = strtok(ext2_name, delim);
+    if (result){    
+        char* token = strtok(ext2_name, &delim);
         int ctr = 0;
         while (token && ctr < size){
             result[ctr] = token;
             ctr++;
-            token = strdup(NULL, delim);
+            token = strtok(NULL, &delim);
         }
+        // finish off with a null terminal
+        result[ctr] = "\0";
     } else {
         perror("Couldn't split input absolute path for ext2 system. Unsufficient heap space.");
         exit(1);
