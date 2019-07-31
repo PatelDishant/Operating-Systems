@@ -40,6 +40,66 @@ void parse_arguments(int argc, char* argv[]){
     }
 }
 
+/*
+ * Creates an array of the permissions of the inode.
+ * 
+ * inode: the inode you wish to get permissions from
+ * 
+ * return: string array of: [user, group, all] permission where each are organized 
+ */
+char** find_permission(struct ext2_inode* inode){
+    char** permission = malloc(sizeof(char*)*3);
+    permission[0]="";
+    permission[1]="";
+    permission[2]="";
+    if(inode->i_mode & S_IRUSR){
+        strcat(permission[0], "r");
+    } else {
+        strcat(permission[0], "-");
+    }
+    if(inode->i_mode & S_IWUSR){
+        strcat(permission[0], "w");
+    } else {
+        strcat(permission[0], "-");
+    }
+    if(inode->i_mode & S_IXUSR){
+        strcat(permission[0], "x");
+    } else {
+        strcat(permission[0], "-");
+    }
+    if(inode->i_mode & S_IRGRP){
+        strcat(permission[1], "r");
+    } else {
+        strcat(permission[1], "-");
+    }
+    if(inode->i_mode & S_IWGRP){
+        strcat(permission[1], "w");
+    } else {
+        strcat(permission[1], "-");
+    }
+    if(inode->i_mode & S_IXGRP){
+        strcat(permission[1], "x");
+    } else {
+        strcat(permission[1], "-");
+    }
+    if(inode->i_mode & S_IROTH){
+        strcat(permission[2], "r");
+    } else {
+        strcat(permission[2], "-");
+    }
+    if(inode->i_mode & S_IWOTH){
+        strcat(permission[2], "r");
+    } else {
+        strcat(permission[2], "-");
+    }
+    if(inode->i_mode & S_IXOTH){
+        strcat(permission[2], "r");
+    } else {
+        strcat(permission[2], "-");
+    }
+    return permission;
+}
+
 int main(int argc, char* argv[]) {
 
     // parse through the arguments
@@ -72,6 +132,7 @@ int main(int argc, char* argv[]) {
     } else if(S_ISREG(final_inode->i_mode)){
         char file_type = '-';
     } else if(S_ISDIR(final_inode->i_mode)){
+        char file_type = 'd';
         // walk through the blocks printing each one
         // if a_flag == 1 then print the . & .. entries as well
         int size = 0;
@@ -80,6 +141,8 @@ int main(int argc, char* argv[]) {
             size += curr_dir_entry->rec_len;
             struct ext2_inode* curr_inode = &inode_table[inode_number(curr_dir_entry->inode)];
             // figure out the permissions
+            char** permission_array = find_permission(curr_inode);
+            
         }
     }
 

@@ -86,9 +86,12 @@ struct ext2_inode* find_inode(char** path_array){
     int curr_isize = 0;
     short found_next = 0;
     while(*path_array) {
-        found_next = 0;
+        if (found_next == 1)
+            found_next = 0;
+        else
+            found_next = 1;
         // go through inode blocks
-        for(int i = 0; i < 15 && curr_inode->i_block[i]!= 0 && curr_isize < curr_inode->i_size; i ++) {
+        for(int i = 0; i < 15 && curr_inode->i_block[i]!= 0 && curr_isize < curr_inode->i_size && found_next == 0; i ++) {
             struct ext2_dir_entry_2* curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * curr_inode->i_block[i]);
             curr_isize += curr_dir_entry->rec_len;
             // compare path name to name
@@ -105,6 +108,8 @@ struct ext2_inode* find_inode(char** path_array){
             curr_inode = NULL;
             break;
         }
+        free(path_array);
     }
+    free(path_array);
     return curr_inode;
 }
