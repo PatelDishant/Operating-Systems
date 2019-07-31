@@ -100,6 +100,21 @@ char** find_permission(struct ext2_inode* inode){
     return permission;
 }
 
+/*
+ * Given an inode, returns a string of the modified time.
+ * 
+ * inode: the inode you wish to get the time string
+ * 
+ * return: a heap allocated string
+ */
+char* get_time(struct ext2_inode* inode){
+    time_t time = (time_t) inode->i_mtime;
+    struct tm* ltime = localtime(&time);
+    char* stime=malloc(sizeof(char)*13);
+    strftime(stime, 13, "%b %d %H:%M", ltime);
+    return stime;
+}
+
 int main(int argc, char* argv[]) {
 
     // parse through the arguments
@@ -142,8 +157,41 @@ int main(int argc, char* argv[]) {
             struct ext2_inode* curr_inode = &inode_table[inode_number(curr_dir_entry->inode)];
             // figure out the permissions
             char** permission_array = find_permission(curr_inode);
-            
+            short links = curr_inode->i_links_count;
+            // get user name (for now just check if 0 then root)
+            char username[5] = "root";
+            char is_uroot = 0;
+            if(curr_inode->i_uid == 0){
+                is_uroot = 1;
+            }
+            // get group name (for now just check if 0 then root)
+            char groupname[5] = "root";
+            char is_groot = 0;
+            if(curr_inode->i_gid == 0){
+                is_groot = 1;
+            }
+            // get size
+            int isize = curr_inode->i_size;
+            // get modified time
+            char* modified_time = get_time(curr_inode);
+            // get name
+            char* name[curr_dir_entry->name_len + 1];
+            strcpy(name, curr_dir_entry->name);
+            char dot[2] = ".";
+            char ddot[3] = "..";
+            // print
+            if(((strcmp(name, dot) == 0 || strcmp(name, ddot) == 0) && a_flag == 1) || (strcmp(name, dot) != 0 && strcmp(name, ddot) != 0)){
+                printf("%c", file_type);
+                for(int i =0; i < 3; i++){
+                    printf("%s", permission_array[i]);
+                    free(permission_array[i]);
+                }
+                printf(" %d &s &s &d &s &s\n", links, username, groupname, isize, modified_time, name);
+
+            }
+            free(modified_time);
         }
+        
     }
 
 return 1;
