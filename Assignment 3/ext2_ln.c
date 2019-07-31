@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include "ext2.h"
 
@@ -43,6 +44,30 @@ int main(int argc, char *argv[]) {
 
     // open disk image
     map(img_name);
+
+    // split up the ext2_path_orig & dest into an array delimited by '/' & make sure absolute path
+    char** path_array_orig = split(ext2_path_orig);
+    if(!path_array_orig){
+        perror("No such file or directory");
+        return ENOENT;
+    }
+    char** path_array_dest = split(ext2_path_dest);
+    if(!path_array_dest){
+        perror("No such file or directory");
+        return ENOENT;
+    }
+
+    // locate end of path inode
+    struct ext2_inode* final_inode_orig = find_inode(path_array_orig);
+    if(!final_inode_orig){
+        perror("No such file or directory");
+        return ENOENT;
+    }
+    struct ext2_inode* final_inode_dest = find_inode(path_array_dest);
+    if(!final_inode_dest){
+        perror("No such file or directory");
+        return ENOENT;
+    }
 
 return 1;
 }

@@ -1,11 +1,8 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include "ext2.h"
 
 unsigned char * disk;
 
@@ -70,4 +67,44 @@ char** split(char* ext2_name){
         exit(1);
     }
     return result;
+}
+
+/*
+ * Given an absolute path, finds inode for destination
+ * 
+ * path_array: a string array representing an absolute path
+ * 
+ * return: a pointer to destination inode
+ */
+struct ext2_inode* find_inode(char** path_array){
+    // set up pointers to superblock, group descriptor, root_inode
+    struct ext2_super_block* sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
+    struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+    struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+    struct ext2_inode* curr_inode = &inode_table[inode_number(2)];
+    // go through inodes to find directory
+    int curr_isize = 0;
+    short found_next = 0;
+    while(*path_array) {
+        found_next = 0;
+        // go through inode blocks
+        for(int i = 0; i < 15 && curr_inode->i_block[i]!= 0 && curr_isize < curr_inode->i_size; i ++) {
+            struct ext2_dir_entry_2* curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * curr_inode->i_block[i]);
+            curr_isize += curr_dir_entry->rec_len;
+            // compare path name to name
+            if(strcmp(*path_array, curr_dir_entry->name) == 0){
+                found_next = 1;
+                // set current inode to be that inode
+                curr_inode = &inode_table[inode_number(curr_dir_entry->inode)];
+                path_array++;
+                break;
+            }
+        }
+        if(found_next == 0){
+            // nothing found that matches within directory, the path doesn't match up
+            curr_inode = NULL;
+            break;
+        }
+    }
+    return curr_inode;
 }
