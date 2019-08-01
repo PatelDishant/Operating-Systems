@@ -22,4 +22,4 @@ test_helper : helper.o test_helper.o
 	gcc -Wall -g -c $<
 
 clean : 
-	rm -f *.o *~
+	rm -f *.o $(objects) ext2_ls ext2_ln ext2_cp ext2_rm ext2_mkdir test_helper
