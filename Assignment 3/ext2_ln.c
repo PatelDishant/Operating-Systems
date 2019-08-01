@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include "ext2.h"
+#include "helper.h"
 
 int s_flag = 0;
 char * img_name;
@@ -31,7 +32,7 @@ void parse_arguments(int argc, char *argv[]){
         } else if(i == 3 || (i == 4 && !ext2_path_dest)) {
             ext2_path_dest = argv[i];
         } else {
-            pperror("Usage: ext2_cp <name of ext2 formatted virtual disk> -s <path to link origin on ext2 disk> <path to link destination on ext2 disk>");
+            perror("Usage: ext2_cp <name of ext2 formatted virtual disk> -s <path to link origin on ext2 disk> <path to link destination on ext2 disk>");
             exit(1);
         }
     }

@@ -4,7 +4,9 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <string.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/mman.h>
 #include "ext2.h"
 #include "helper.h"
@@ -34,7 +36,7 @@ void parse_arguments(int argc, char* argv[]){
         } else if(i == 2 || (i == 3 && !ext2_path)){
             ext2_path = argv[i];
         }  else {
-            pperror("Usage: ext2_cp <name of ext2 formatted virtual disk> -a <absolute path on ext2 disk>");
+            perror("Usage: ext2_cp <name of ext2 formatted virtual disk> -a <absolute path on ext2 disk>");
             exit(1);
         }
     }
@@ -115,6 +117,71 @@ char* get_time(struct ext2_inode* inode){
     return stime;
 }
 
+/*
+ * Given an inode, determins the file type and turns it into a char representation.
+ * 
+ * inode: inode you wish to evaluate
+ * 
+ * return: char representation of file type
+ */
+char get_file_type(struct ext2_inode* inode){
+    char result = '\0';
+    if (S_ISLNK(inode->i_mode)) {
+        result = 'l';
+    } else if(S_ISREG(inode->i_mode)){
+        result = '-';
+    } else if(S_ISDIR(inode->i_mode)){
+        result = 'd';
+    }
+    return result;
+}
+
+/*
+ * Prints out an ls -l style line given an inode and it's dir_entry.
+ * 
+ * inode: inode of the dir_entry
+ * dir_entry: item you're trying to print
+ */
+void print_line(struct ext2_inode* inode, struct ext2_dir_entry_2* dir_entry){
+    char file_type = get_file_type(inode);
+    // figure out the permissions
+    char** permission_array = find_permission(inode);
+    short links = inode->i_links_count;
+    // get user name (for now just check if 0 then root)
+    char username[5] = "root";
+    char is_uroot = 0;
+    if(inode->i_uid == 0){
+        is_uroot = 1;
+    }
+    // get group name (for now just check if 0 then root)
+    char groupname[5] = "root";
+    char is_groot = 0;
+    if(inode->i_gid == 0){
+        is_groot = 1;
+    }
+    // get size
+    int isize = inode->i_size;
+    // get modified time
+    char* modified_time = get_time(inode);
+    // get name
+    char name[dir_entry->name_len + 1];
+    memset(name, '\0', sizeof(name));
+    strcpy(name, dir_entry->name);
+    char dot[2] = ".";
+    char ddot[3] = "..";
+    // print
+    if(((strcmp(name, dot) == 0 || strcmp(name, ddot) == 0) && a_flag == 1) || (strcmp(name, dot) != 0 && strcmp(name, ddot) != 0)){
+        printf("%c", file_type);
+        for(int i =0; i < 3; i++){
+            printf("%s", permission_array[i]);
+            free(permission_array[i]);
+        }
+        printf(" %d %s %s %d %s %s\n", links, username, groupname, isize, modified_time, name);
+
+    }
+    free(modified_time);
+}
+
 int main(int argc, char* argv[]) {
 
     // parse through the arguments
@@ -139,57 +206,27 @@ int main(int argc, char* argv[]) {
 
     struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
     struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+    printf("Total %d\n", final_inode->i_blocks);
     // now we just print out the inode's files
     // three cases: link, reg file, dir
     if (S_ISLNK(final_inode->i_mode)) {
-        char file_type = 'l';
 
     } else if(S_ISREG(final_inode->i_mode)){
-        char file_type = '-';
+        // get block for file
+        struct ext2_dir_entry_2* dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[0]);
+        // print the block
+        print_line(final_inode, dir_entry);       
     } else if(S_ISDIR(final_inode->i_mode)){
-        char file_type = 'd';
-        // walk through the blocks printing each one
-        // if a_flag == 1 then print the . & .. entries as well
+        // have to step through each block
         int size = 0;
         for(int i = 0; i < 15 && size < final_inode->i_size && final_inode->i_block[i] != 0; i++){
+            // get that block
             struct ext2_dir_entry_2* curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[i]);
             size += curr_dir_entry->rec_len;
+            // get the inode for that block
             struct ext2_inode* curr_inode = &inode_table[inode_number(curr_dir_entry->inode)];
-            // figure out the permissions
-            char** permission_array = find_permission(curr_inode);
-            short links = curr_inode->i_links_count;
-            // get user name (for now just check if 0 then root)
-            char username[5] = "root";
-            char is_uroot = 0;
-            if(curr_inode->i_uid == 0){
-                is_uroot = 1;
-            }
-            // get group name (for now just check if 0 then root)
-            char groupname[5] = "root";
-            char is_groot = 0;
-            if(curr_inode->i_gid == 0){
-                is_groot = 1;
-            }
-            // get size
-            int isize = curr_inode->i_size;
-            // get modified time
-            char* modified_time = get_time(curr_inode);
-            // get name
-            char* name[curr_dir_entry->name_len + 1];
-            strcpy(name, curr_dir_entry->name);
-            char dot[2] = ".";
-            char ddot[3] = "..";
-            // print
-            if(((strcmp(name, dot) == 0 || strcmp(name, ddot) == 0) && a_flag == 1) || (strcmp(name, dot) != 0 && strcmp(name, ddot) != 0)){
-                printf("%c", file_type);
-                for(int i =0; i < 3; i++){
-                    printf("%s", permission_array[i]);
-                    free(permission_array[i]);
-                }
-                printf(" %d &s &s &d &s &s\n", links, username, groupname, isize, modified_time, name);
-
-            }
-            free(modified_time);
+            // print the line
+            print_line(curr_inode, curr_dir_entry);
         }
         
     }

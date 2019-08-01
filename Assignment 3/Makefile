@@ -1,3 +1,6 @@
+ext2: ext2_ls.o
+	gcc -Wall -g -o % $^
+
 test_helper :  helper.o test_helper.o
 	gcc -Wall -g -o test_helper $^
 

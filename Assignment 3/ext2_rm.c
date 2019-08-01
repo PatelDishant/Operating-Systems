@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include "ext2.h"
+#include "helper.h"
 
 char * img_name = NULL;
 char * ext2_path = NULL;
@@ -25,7 +26,7 @@ void parse_arguments(int argc, char *argv[]){
         } else if(i == 2){
             ext2_path = argv[i];
         } else {
-            pperror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path to file or link on ext2 disk>");
+            perror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path to file or link on ext2 disk>");
             exit(1);
         }
     }
