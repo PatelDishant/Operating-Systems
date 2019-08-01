@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/mman.h>
 #include "ext2.h"
 #include "helper.h"

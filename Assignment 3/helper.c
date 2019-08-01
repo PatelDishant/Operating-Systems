@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include "ext2.h"
+#include "helper.h"
 
 unsigned char * disk;
 
@@ -78,7 +80,6 @@ char** split(char* ext2_name){
  */
 struct ext2_inode* find_inode(char** path_array){
     // set up pointers to superblock, group descriptor, root_inode
-    struct ext2_super_block* sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
     struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
     struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
     struct ext2_inode* curr_inode = &inode_table[inode_number(2)];
