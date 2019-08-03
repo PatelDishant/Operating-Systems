@@ -107,7 +107,6 @@ struct ext2_inode* find_inode(char** path_array){
                 curr_inode = NULL;
             }
         }
-        free(&path_array[j]);
     }
     free(path_array);
     return curr_inode;
