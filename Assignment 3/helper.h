@@ -1,13 +1,11 @@
 #ifndef __HELPER_H__
 #define __HELPER_H_
 
-#define inode_number(x) (x - 1)
-#define ISLNK(x) (x & EXT2_S_IFLNK)
-#define ISREG(x) (x & EXT2_S_IFREG)
-#define ISDIR(x) (x & EXT2_S_IFDIR)
+#define INODE_NUMBER(x) (x - 1)
 
 // disk location to be used
 extern unsigned char* disk;
+extern int path_length;
 
 /*
  * Maps a .img file to an accessible location.

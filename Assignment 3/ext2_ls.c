@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include "ext2.h"
 #include "helper.h"
 
@@ -80,11 +81,9 @@ int main(int argc, char* argv[]) {
         return ENOENT;
     }
 
-    printf("%d\n", final_inode->i_mode);
-
     // now we just print out the inode's files
     // three cases: link, reg file, dir
-    if (ISLNK(final_inode->i_mode)) {
+    if (S_ISLNK(final_inode->i_mode)) {
 
         // fast symlink
         if(final_inode->i_blocks == 0){
@@ -96,12 +95,12 @@ int main(int argc, char* argv[]) {
         // slow symlink
             // get path string from actual i_block
         
-    } else if(ISREG(final_inode->i_mode)){
+    } else if(S_ISREG(final_inode->i_mode)){
         // get block for file
         struct ext2_dir_entry_2* dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[0]);
         // print the block
         print_line(dir_entry);       
-    } else if(ISDIR(final_inode->i_mode)){
+    } else if(S_ISDIR(final_inode->i_mode)){
         // have to step through each block
         int size = 0;
         for(int i = 0; i < 15 && size < final_inode->i_size && final_inode->i_block[i] != 0; i++){
