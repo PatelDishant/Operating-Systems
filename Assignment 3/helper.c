@@ -72,6 +72,55 @@ char** split(char* ext2_name){
     return result;
 }
 
+/* manipulating arrays was tedious so just reusing the split function for finding directory */
+char** split_dir(char* ext2_name){
+    // figure out how large of an array we need
+    int size = 0;
+    char* char_compare = ext2_name;
+    char* last_char;
+    char delim = '/';
+    // if first char not delim then not absolute so return empty string
+    if(*char_compare != delim) {
+        return NULL;
+    }
+    while(*char_compare) {
+        if(*char_compare == delim){
+            size++;
+        }
+        last_char = char_compare;
+        char_compare++;
+    }
+    // check if last_char was the delim - if true then -1 from size
+    if(*last_char == delim){
+        size--;
+    }
+    path_length = size - 1;
+    char** result = malloc(sizeof(char*) * path_length);
+    // populate the array
+    if (result){    
+        char* token = strtok(ext2_name, &delim);
+        int ctr = 0;
+        while (token && ctr < path_length){
+            result[ctr] = token;
+            ctr++;
+            token = strtok(NULL, &delim);
+        }
+    } else {
+        perror("Couldn't split input absolute path for ext2 system. Unsufficient heap space.");
+        exit(1);
+    }
+    return result;
+}
+
+char *get_last_item_name(char* ext2_name){
+    char delim = '/';
+    char* token = strtok(ext2_name, &delim);
+    while(token != NULL) {
+        token = strtok(ext2_name, &delim);
+    }
+    return token;
+}
+
 /*
  * Given an absolute path, finds inode for destination
  * 
