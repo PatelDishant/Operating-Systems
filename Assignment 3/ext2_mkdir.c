@@ -20,15 +20,12 @@ char * ext2_path = NULL;
  * argv: the arguments passed
  */
 void parse_arguments(int argc, char *argv[]){
-        for (int i = 1; i < argc; i ++) {
-        if (i == 1) {
-            img_name = argv[i];
-        } else if(i == 2){
-            ext2_path = argv[i];
-        } else {
-            perror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path on ext2 disk>");
-            exit(1);
-        }
+    if(argc == 3) {
+        img_name = argv[1];
+        ext2_path = argv[2];
+    } else {
+        perror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path to file or link on ext2 disk>");
+        exit(1);
     }
 }
 
@@ -40,19 +37,57 @@ int main(int argc, char *argv[]) {
     // open disk image
     map(img_name);
 
-    // split up the ext2_path_orig & dest into an array delimited by '/' & make sure absolute path
-    char** path_array = split(ext2_path);
-    if(!path_array){
+    // get all the required variables
+    struct ext2_super_block *super_block = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
+    struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+    struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+    char *bitmap = (char *)(disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE));
+    
+    // get the path to the directory which contains the file
+    char **dir_path_array = split_dir(ext2_path);
+    if(!dir_path_array){
         perror("No such file or directory");
         return ENOENT;
     }
 
-    // locate end of path inode
-    struct ext2_inode* final_inode = find_inode(path_array);
-    if(!final_inode){
+    // locate the directory inode
+    struct ext2_inode* dir_inode = find_inode(dir_path_array);
+    if(!dir_inode){
         perror("No such file or directory");
         return ENOENT;
     }
+
+    // get the path to the file 
+    char **file_path_array = split(ext2_path);
+    if(!file_path_array){
+        perror("Invalid path given");
+        return ENOENT;
+    }
+
+    // check if file already exists
+    struct ext2_inode* file_inode = find_inode(file_path_array);
+    if(file_inode){
+        perror("File with specified name already exists");
+        return EEXIST;
+    } else {
+        int byte, bit;
+        unsigned int inode_num;
+        for (byte = 1; byte < super_block->s_inodes_count / 8, byte++) {
+            for (bit = (EXT2_GOOD_OLD_FIRST_INO - 1) % 8; bit < 8; bit++) {
+                if (((inode_bitmap[byte]& (1 << bit)) & 1) == 0) {
+                    break;
+                } 
+            }
+            // last bit for byte so reset
+            if (bit == 8) {
+                bit = 0;
+            } else {
+                break;
+            }
+        }
+        inode_num = (byte * 8) + (bit) + 1;
+    }
+
 
 return 1;
 }
