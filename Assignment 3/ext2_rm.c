@@ -23,15 +23,12 @@ char * ext2_path = NULL;
  * argv: the arguments passed
  */
 void parse_arguments(int argc, char *argv[]){
-        for (int i = 1; i < argc; i ++) {
-        if (i == 1) {
-            img_name = argv[i];
-        } else if(i == 2){
-            ext2_path = argv[i];
-        } else {
-            perror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path to file or link on ext2 disk>");
-            exit(1);
-        }
+    if(argc == 3) {
+        img_name = argv[1];
+        ext2_path = argv[2];
+    } else {
+        perror("Usage: ext2_cp <name of ext2 formatted virtual disk> <absolute path to file or link on ext2 disk>");
+        exit(1);
     }
 }
 
@@ -102,7 +99,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         // remove from inode bitmap and block bitmap
-                        
+
                         // update the i_dtime for the inode
                         if (curr_inode->i_links_count == 0) {
                             curr_inode->i_dtime = (unsigned int) time(NULL);
