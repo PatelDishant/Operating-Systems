@@ -112,7 +112,7 @@ char** split_dir(char* ext2_name){
     return result;
 }
 
-char *get_last_item_name(char* ext2_name){
+char *get_filename(char* ext2_name){
     char delim = '/';
     char* token = strtok(ext2_name, &delim);
     while(token != NULL) {
