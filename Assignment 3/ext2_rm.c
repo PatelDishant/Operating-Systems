@@ -6,7 +6,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/mman.h>
-#include "<time.h>"
+#include <time.h>
+#include <string.h>
 #include "ext2.h"
 #include "helper.h"
 
@@ -36,69 +37,85 @@ void parse_arguments(int argc, char *argv[]){
 
 int main(int argc, char *argv[]) {
 
-    // parse through the arguments
+    // parse through and store the arguments
     parse_arguments(argc, argv);
 
     // open disk image
     map(img_name);
 
-    // get the path to the directory which contains the file
-    char **dir_array = split_dir(ext2_path);
-    if(!dir_array){
-        perror("No such file or directory");
+    // get the path to the file 
+    char **file_path_array = split_dir(ext2_path);
+    if(!file_path_array){
+        perror("No such file exists");
         return ENOENT;
     }
 
-    // locate the directory inode
-    struct ext2_inode* dir_inode = find_inode(dir_array);
-    if(!dir_inode){
-        perror("No such file or directory");
+    // locate the file inode
+    struct ext2_inode* file_inode = find_inode(file_path_array);
+
+    // Check if inode points to a file, and that the file is a file and not a directory
+    if (!file_inode) {
+        perror("No such file exists");
         return ENOENT;
-    }
+    } else if (S_ISDIR(file_inode->i_mode)) {
+        perror("Directory specified instead of file, use -r to remove directory");
+        return ENOENT;
+    } else {
+        // get the file name
+        char* file_name = get_filename(ext2_path);
+        // get the path to the directory which contains the file
+        char **dir_array = split_dir(ext2_path);
+        if(!dir_array){
+            perror("No such file or directory");
+            return ENOENT;
+        }
 
-    // get the directory entry starting position for directory containing file
-    struct ext2_dir_entry_2* dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[0]);
-    // get last entry in the given path
-    char* file_name = get_last_item_name(ext2_path);
-    // step through each block
-    int size = 0;
-    for(int i = 0; i < 15 && size < dir_inode->i_size && dir_inode->i_block[i] != 0; i++){
-        // get that block
-        struct ext2_dir_entry_2* curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
-        // if inode exists
-        if (curr_dir_entry->inode != 0) {
-            if (strcmp(file_name, curr_dir_entry->name) == 0) {
-                if (curr_dir_entry->file_type == EXT2_FT_REG_FILE || curr_dir_entry->file_type == EXT2_FT_SYMLINK) {
-                    // get the inode
-                    struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
-                    struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
-                    struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)];
-                    curr_inode = &inode_table[INODE_NUMBER(curr_dir_entry->inode)];
+        // locate the directory inode
+        struct ext2_inode* dir_inode = find_inode(dir_array);
+        if(!dir_inode){
+            perror("No such file or directory");
+            return ENOENT;
+        }
 
-                    // if file has links, decrease the count
-                    if (curr_inode->i_links_count > 0){
-                        curr_inode->i_links_count -= 1;
-                    } else {
-                        perror("inode has no links");
-                        exit(1);
+        struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+        struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+        struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; // might need to fix this to point to correct inode
+        // step through each block
+        int size = 0;
+        for(int i = 0; i < 15 && size < dir_inode->i_size && dir_inode->i_block[i] != 0; i++) {
+            // get that block
+            struct ext2_dir_entry_2 *curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
+            // if inode exists
+            if (curr_dir_entry->inode != 0) {
+                // check if same length to avoid matching first part of a longer string
+                if(curr_dir_entry->name_len == strlen(file_name)) {
+                    if (strncmp(file_name, curr_dir_entry->name, curr_dir_entry->name_len) == 0) {
+                        // get the inode
+                        curr_inode = &inode_table[INODE_NUMBER(curr_dir_entry->inode)];
+
+                        // if file has links, decrease the count
+                        if (curr_inode->i_links_count > 0){
+                            curr_inode->i_links_count -= 1;
+                        } else {
+                            perror("inode has no links");
+                            exit(1);
+                        }
+
+                        // remove from inode bitmap and block bitmap
+                        
+                        // update the i_dtime for the inode
+                        if (curr_inode->i_links_count == 0) {
+                            curr_inode->i_dtime = (unsigned int) time(NULL);
+                        }
+
+                        // get the inode bitmap
+                        unsigned char *inode_bitmap = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_bitmap);
+                        gd->bg_free_inodes_count += 1;
                     }
-                    // update the i_dtime for the inode
-                    if (curr_inode->i_links_count == 0) {
-                        curr_inode->i_dtime = (unsigned int) time(NULL);
-                    }
-
-                    // get the inode bitmap
-                    unsigned char *inode_bitmap = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_bitmap);
-                    gd->bg_free_inodes_count += 1;
                 }
             }
         }
     }
-
-
-
-    
-
 
 return 1;
 }
