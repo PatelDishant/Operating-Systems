@@ -49,13 +49,14 @@ void parse_arguments(int argc, char* argv[]){
  */
 void print_line(struct ext2_dir_entry_2* dir_entry){
     // get name
-    char name[dir_entry->name_len + 1];
+    int size = dir_entry->name_len + 1;
+    char name[size];
     memset(name, '\0', sizeof(name));
-    strcpy(name, dir_entry->name);
+    strncpy(name, dir_entry->name, size - 1);
     char dot[2] = ".";
     char ddot[3] = "..";
     // print
-    if(((strcmp(name, dot) == 0 || strcmp(name, ddot) == 0) && a_flag == 1) || (strcmp(name, dot) != 0 && strcmp(name, ddot) != 0)){
+    if(((strcmp(name, dot) == 0 || strcmp(name, ddot) == 0 || name[0] == '.') && a_flag == 1) || (strcmp(name, dot) != 0 && strcmp(name, ddot) != 0 && name[0] != '.')){
         printf("%s\n", name);
     }
 }
@@ -74,6 +75,14 @@ int main(int argc, char* argv[]) {
         return ENOENT;
     }
 
+    char lastpath[EXT2_NAME_LEN];
+    memset(lastpath, '\0', (EXT2_NAME_LEN)*sizeof(char));
+    if (path_length > 0){
+        // get name of file in case reg/link
+        int filename_size = strlen(path_array[path_length - 1]);  
+        strncpy(lastpath, path_array[path_length - 1], filename_size);
+    }
+
     // locate end of path inode
     struct ext2_inode* final_inode = find_inode(path_array);
     if(!final_inode){
@@ -82,33 +91,22 @@ int main(int argc, char* argv[]) {
     }
 
     // now we just print out the inode's files
-    // three cases: link, reg file, dir
-    if (S_ISLNK(final_inode->i_mode)) {
-
-        // fast symlink
-        if(final_inode->i_blocks == 0){
-            // get path string from i_block array
-            char* new_path = (char*)final_inode->i_block;
-            printf("%s", new_path);
-            exit(1);
-        }
-        // slow symlink
-            // get path string from actual i_block
-        
-    } else if(S_ISREG(final_inode->i_mode)){
-        // get block for file
-        struct ext2_dir_entry_2* dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[0]);
-        // print the block
-        print_line(dir_entry);       
+    if (S_ISLNK(final_inode->i_mode) || S_ISREG(final_inode->i_mode)) {
+        // since we've made sure that it already exists, and we have it's name we just have to print it
+        printf("%s\n", lastpath);
     } else if(S_ISDIR(final_inode->i_mode)){
         // have to step through each block
-        int size = 0;
-        for(int i = 0; i < 15 && size < final_inode->i_size && final_inode->i_block[i] != 0; i++){
+        for(int i = 0; i < 15 && final_inode->i_block[i] != 0; i++){
+            int fnode_size = 0;
             // get that block
-            struct ext2_dir_entry_2* curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[i]);
-            size += curr_dir_entry->rec_len;
-            // print the line
-            print_line(curr_dir_entry);
+            struct ext2_dir_entry_2* block = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * final_inode->i_block[i]);
+            int block_size = 0;
+            while(block_size < EXT2_BLOCK_SIZE && fnode_size < final_inode->i_size){
+                struct ext2_dir_entry_2* dir_entry = (struct ext2_dir_entry_2*)((unsigned char*)block + block_size);
+                block_size += dir_entry->rec_len;
+                fnode_size += dir_entry->rec_len;
+                print_line(dir_entry);
+            }
         }
         
     }
