@@ -72,20 +72,27 @@ int main(int argc, char *argv[]) {
     } else {
         int byte, bit;
         unsigned int inode_num;
-        for (byte = 1; byte < super_block->s_inodes_count / 8, byte++) {
-            for (bit = (EXT2_GOOD_OLD_FIRST_INO - 1) % 8; bit < 8; bit++) {
-                if (((inode_bitmap[byte]& (1 << bit)) & 1) == 0) {
+        unsigned int num_bytes = super_block->s_inodes_count / 8;
+        if (super_block->s_free_inodes_count) {
+            for (byte = 1; byte < num_bytes; byte++) {
+                for (bit = (EXT2_GOOD_OLD_FIRST_INO - 1) % 8; bit < 8; bit++) {
+                    if (((bitmap[byte]& (1 << bit)) & 1) == 0) {
+                        break;
+                    } 
+                }
+                // last bit for byte so reset
+                if (bit == 8) {
+                    bit = 0;
+                } else {
                     break;
-                } 
+                }
             }
-            // last bit for byte so reset
-            if (bit == 8) {
-                bit = 0;
-            } else {
-                break;
-            }
-        }
         inode_num = (byte * 8) + (bit) + 1;
+        } else {
+            inode_num = 0;
+        }
+        super_block->s_free_inodes_count -= 1;
+        bitmap[byte] = byte | (1 << bit);
     }
 
 

@@ -85,9 +85,9 @@ int main(int argc, char *argv[]) {
             // if inode exists
             while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size) {
                 // check if same length to avoid matching first part of a longer string
-                if(curr_dir_entry->name_len == strlen(*file_name)) {
+                if(curr_dir_entry->name_len == strlen(file_name)) {
                     // if directory entry found, set it to 0
-                    if (strncmp(file_name, curr_dir_entry->name, strlen(*file_name)) == 0) {
+                    if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
                         // TODO: inode_remove_num = curr_dir_entry->inode;
                         memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
                         break;

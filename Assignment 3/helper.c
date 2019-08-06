@@ -114,8 +114,9 @@ char** split_dir(char* ext2_name){
 
 char *get_filename(char* ext2_name){
     char delim = '/';
-    char* token = strtok(ext2_name, &delim);
-    while(token != NULL) {
+    char * token = strtok(ext2_name, &delim);
+    int ctr = 0;
+    while(token && ctr < path_length) {
         token = strtok(NULL, &delim);
     }
     return token;
