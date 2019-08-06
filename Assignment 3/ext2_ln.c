@@ -74,8 +74,13 @@ int main(int argc, char *argv[]) {
     memset(lastpath, '\0', (EXT2_NAME_LEN)*sizeof(char));
     if (path_length > 0){
         // get name of file in case reg/link
-        int filename_size = strlen(path_array_dest[path_length - 1]);  
-        strncpy(lastpath, path_array_dest[path_length - 1], filename_size);
+        int filename_size = strlen(path_array_dest[path_length - 1]);
+        if (filename_size <= EXT2_NAME_LEN){  
+            strncpy(lastpath, path_array_dest[path_length - 1], filename_size);
+        } else {
+            perror("Link name is too long");
+            return EINVAL;
+        }
     }
     // this destination should not exist
     struct ext2_inode* final_inode_dest = find_inode(path_array_dest);
@@ -97,9 +102,16 @@ int main(int argc, char *argv[]) {
     // now we do the linking...
     // hard link case
     if(s_flag == 0){
-        
-        // create a dir entry in the destination directory such that the i_node # is equal to that of the final_inode_orig number
+        // create a dir entr
+        struct ext2_dir_entry_2 new_entry;
+        // add the name len and name
+        new_entry.name_len = strlen(lastpath);
+        new_entry.name[new_entry.name_len + new_entry.name_len % 4];
+        memset(new_entry.name, '\0', (new_entry.name_len + new_entry.name_len % 4) * sizeof(char));
+        strncpy(new_entry.name, lastpath, strlen(lastpath));
+        // set inode to be final inode orig
         // increment link count for the final_inode_orig
+
     }
 
 return 1;

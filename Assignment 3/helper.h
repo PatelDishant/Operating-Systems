@@ -26,7 +26,8 @@ extern char** split(char*);
 extern char** split_dir(char*);
 
 /* Get the the last item from a given path */
-char *get_last_item_name(char* ext2_name);
+extern char *get_filename(char* ext2_name);
+
 /*
  * Given an absolute path, finds inode for destination
  * 

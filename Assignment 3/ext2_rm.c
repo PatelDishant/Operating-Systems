@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     } else if (S_ISDIR(file_inode->i_mode)) {
         perror("Directory specified instead of file, use -r to remove directory");
         return ENOENT;
-    } else {        
+    } else {
         // get the file name
         char* file_name = get_filename(ext2_path);
         // get the path to the directory which contains the file
@@ -72,38 +72,38 @@ int main(int argc, char *argv[]) {
             perror("No such file or directory");
             return ENOENT;
         }
-
-        struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
-        struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
-        struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; 
-        unsigned int inode_remove_num;
+        // TODO: struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+        // TODO: struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
+        // TODO: struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; 
+        // TODO: unsigned int inode_remove_num = 0;
         // step through each block 
-        for(int i = 0; i < 15 && dir_inode->i_block[i] != 0 && dir_inode; i++) {
+        int tsize = 0;
+        for(int i = 0; i < 15 && dir_inode->i_block[i] != 0; i++) {
             int block_size = 0;
             // get that block
             struct ext2_dir_entry_2 *curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
             // if inode exists
-            if (curr_dir_entry->inode != 0) {
-                while(block_size < 1024) {
-                    // check if same length to avoid matching first part of a longer string
-                    if(curr_dir_entry->name_len == strlen(file_name)) {
-                        // if directory entry found, set it to 0
-                        if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
-                            inode_remove_num = curr_dir_entry->inode;
-                            memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
-                            break;
-                        }
-
+            while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size) {
+                // check if same length to avoid matching first part of a longer string
+                if(curr_dir_entry->name_len == strlen(*file_name)) {
+                    // if directory entry found, set it to 0
+                    if (strncmp(file_name, curr_dir_entry->name, strlen(*file_name)) == 0) {
+                        // TODO: inode_remove_num = curr_dir_entry->inode;
+                        memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
+                        break;
                     }
-                    block_size += curr_dir_entry->rec_len;
-                    curr_dir_entry = (struct ext2_dir_entry_2 *)((char *)curr_dir_entry + curr_dir_entry->rec_len);
+
                 }
-                if (block_size < 1024) {
-                    break;
-                }
+                block_size += curr_dir_entry->rec_len;
+                tsize += curr_dir_entry->rec_len;
+                curr_dir_entry = (struct ext2_dir_entry_2 *)((char *)curr_dir_entry + curr_dir_entry->rec_len);
+            }
+            if (block_size < 1024) {
+                break;
             }
         }
-
+        printf("done main loop\n");
+        fflush(stdout);
         // if file has links, decrease the count
         if (file_inode->i_links_count > 0){
             file_inode->i_links_count -= 1;

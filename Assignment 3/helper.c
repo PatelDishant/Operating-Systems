@@ -116,7 +116,7 @@ char *get_filename(char* ext2_name){
     char delim = '/';
     char* token = strtok(ext2_name, &delim);
     while(token != NULL) {
-        token = strtok(ext2_name, &delim);
+        token = strtok(NULL, &delim);
     }
     return token;
 }
