@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     map(img_name);
 
     // get the path to the file 
-    char **file_path_array = split_dir(ext2_path);
+    char **file_path_array = split(ext2_path);
     if(!file_path_array){
         perror("No such file exists");
         return ENOENT;
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     } else if (S_ISDIR(file_inode->i_mode)) {
         perror("Directory specified instead of file, use -r to remove directory");
         return ENOENT;
-    } else {
+    } else {        
         // get the file name
         char* file_name = get_filename(ext2_path);
         // get the path to the directory which contains the file
@@ -66,8 +66,7 @@ int main(int argc, char *argv[]) {
             perror("No such file or directory");
             return ENOENT;
         }
-
-        // locate the directory inode
+        // get inode for the directory which contains the file
         struct ext2_inode* dir_inode = find_inode(dir_array);
         if(!dir_inode){
             perror("No such file or directory");
@@ -76,41 +75,46 @@ int main(int argc, char *argv[]) {
 
         struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
         struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
-        struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; // might need to fix this to point to correct inode
-        // step through each block
-        int size = 0;
-        for(int i = 0; i < 15 && size < dir_inode->i_size && dir_inode->i_block[i] != 0; i++) {
+        struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; 
+        unsigned int inode_remove_num;
+        // step through each block 
+        for(int i = 0; i < 15 && dir_inode->i_block[i] != 0 && dir_inode; i++) {
+            int block_size = 0;
             // get that block
             struct ext2_dir_entry_2 *curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
             // if inode exists
             if (curr_dir_entry->inode != 0) {
-                // check if same length to avoid matching first part of a longer string
-                if(curr_dir_entry->name_len == strlen(file_name)) {
-                    if (strncmp(file_name, curr_dir_entry->name, curr_dir_entry->name_len) == 0) {
-                        // get the inode
-                        curr_inode = &inode_table[INODE_NUMBER(curr_dir_entry->inode)];
-
-                        // if file has links, decrease the count
-                        if (curr_inode->i_links_count > 0){
-                            curr_inode->i_links_count -= 1;
-                        } else {
-                            perror("inode has no links");
-                            exit(1);
+                while(block_size < 1024) {
+                    // check if same length to avoid matching first part of a longer string
+                    if(curr_dir_entry->name_len == strlen(file_name)) {
+                        // if directory entry found, set it to 0
+                        if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
+                            inode_remove_num = curr_dir_entry->inode;
+                            memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
+                            break;
                         }
 
-                        // remove from inode bitmap and block bitmap
-
-                        // update the i_dtime for the inode
-                        if (curr_inode->i_links_count == 0) {
-                            curr_inode->i_dtime = (unsigned int) time(NULL);
-                        }
-
-                        // get the inode bitmap
-                        unsigned char *inode_bitmap = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_bitmap);
-                        gd->bg_free_inodes_count += 1;
                     }
+                    block_size += curr_dir_entry->rec_len;
+                    curr_dir_entry = (struct ext2_dir_entry_2 *)((char *)curr_dir_entry + curr_dir_entry->rec_len);
+                }
+                if (block_size < 1024) {
+                    break;
                 }
             }
+        }
+
+        // if file has links, decrease the count
+        if (file_inode->i_links_count > 0){
+            file_inode->i_links_count -= 1;
+        } else {
+            perror("inode has no links");
+            exit(1);
+        }
+
+        // update the i_dtime for the inode
+        if (file_inode->i_links_count == 0) {
+            file_inode->i_dtime = (unsigned int) time(NULL);
         }
     }
 
