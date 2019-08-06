@@ -16,12 +16,6 @@ char* img_name = NULL;
 char* ext2_path = NULL;
 
 /*
- * CURRENTLY BEING MADE BY KOSTYA
- * THIS WOULD BE REALLY CONVENIENT ON A SCRUM BOARD..
- * MIGHT MAKE ONE ON SATURDAY OR SOMETHING
- */
-
-/*
  * Parses arguments in a set order to global variables respectively.
  * 
  * argc: count(arguments)

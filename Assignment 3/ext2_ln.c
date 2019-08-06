@@ -59,16 +59,47 @@ int main(int argc, char *argv[]) {
         return ENOENT;
     }
 
-    // locate end of path inode
+    // locate end of path_orig inode, make sure it is a reg file
     struct ext2_inode* final_inode_orig = find_inode(path_array_orig);
     if(!final_inode_orig){
         perror("No such file or directory");
         return ENOENT;
+    } else if(!S_ISDIR(final_inode_orig->i_mode)){
+        perror("Target file is not a regular file");
+        return EISDIR;
     }
+
+    // get the desired name of the new link
+    char lastpath[EXT2_NAME_LEN];
+    memset(lastpath, '\0', (EXT2_NAME_LEN)*sizeof(char));
+    if (path_length > 0){
+        // get name of file in case reg/link
+        int filename_size = strlen(path_array_dest[path_length - 1]);  
+        strncpy(lastpath, path_array_dest[path_length - 1], filename_size);
+    }
+    // this destination should not exist
     struct ext2_inode* final_inode_dest = find_inode(path_array_dest);
-    if(!final_inode_dest){
-        perror("No such file or directory");
+    if(final_inode_dest){
+        perror("Link already exists");
+        return EEXIST;
+    }
+    // make sure parent of dest is a directory && exists
+    char** parent_path_dest = split_dir(ext2_path_dest);
+    struct ext2_inode* parent_inode_dest = find_inode(parent_path_dest);
+    if(!parent_inode_dest){
+        perror("Destination directory does not exist");
         return ENOENT;
+    }else if(!S_ISDIR(parent_inode_dest->i_mode)){
+        perror("Destination of link is not a directory");
+        return ENOENT;
+    }
+    
+    // now we do the linking...
+    // hard link case
+    if(s_flag == 0){
+        
+        // create a dir entry in the destination directory such that the i_node # is equal to that of the final_inode_orig number
+        // increment link count for the final_inode_orig
     }
 
 return 1;
