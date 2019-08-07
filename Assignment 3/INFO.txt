@@ -1,0 +1,25 @@
+Name: Kanstantsin Ilioukevitch    UtorID:  1003182012
+Name: Dishant Patel               UtorID:  999013749
+
+
+The biggest problem that we’ve encountered is the little to none documentation on the ext2 filesystem when it comes to working directly with creating inodes and dir entries.
+Finding an answer to an obscure question relies on your own intuition and simply spending a couple hours playing around with the mechanics of the filesystem by yourself.
+This means that you need to spend a fair amount of time just researching which unfortunately we did not have the time for. 
+Being it was just the two of us, we were unable to complete the assignment with our limited time. 
+
+Completed functions: 
+    - ext2_ls
+
+Things that are still under construction & their current state:
+    - ext2_ln
+        - Basic error checking is completed for the given arguments
+        - Outline of what needs to be done has been written out in comments
+    - ext2_rm
+        - All error checking has been completed
+        - Removing reg file from dir entries of the directory inode is completed
+        - Removing the inode of links == 0 is not completed
+    - ext2_cp
+        - Error checking for second argument has been completed
+    - ext2_mkdir
+        - Error checking for passed arguments is completed
+        - Finding available free inode within inode table structure set up

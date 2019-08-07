@@ -101,11 +101,12 @@ int main(int argc, char *argv[]) {
     
     // check if s flag is active
     if(s_flag == 1){
-        // a new inode must be created for this symbolic
-        // TODO: struct ext2_inode* node = create_new_inode(EXT2_S_IFLNK, ext2_path_orig);
-    } else {
-        // node 
+        // a new inode must be created for this symbolic storing the ext2_path_orig in its i_block
+        //TODO: struct ext2_inode* node = create_new_inode(EXT2_S_IFLNK, ext2_path_orig);
     }
+    // a dir entry must be added to the parent_path_dest inode for our new link
+    // inode number is set to be the inode of the orig file if s_flag == 0 else inode number is inode created above ^
+    
 
 return 1;
 }
