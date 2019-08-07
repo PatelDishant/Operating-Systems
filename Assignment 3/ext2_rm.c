@@ -40,7 +40,6 @@ int main(int argc, char *argv[]) {
     // open disk image
     map(img_name);
 
-
     // get the file name
     char* file_name = get_filename(ext2_path);
 
@@ -62,7 +61,6 @@ int main(int argc, char *argv[]) {
         perror("Directory specified instead of file, use -r to remove directory");
         return ENOENT;
     } else {
-        
         // get the path to the directory which contains the file
         char **dir_array = split_dir(ext2_path);
         if(!dir_array){
@@ -75,26 +73,28 @@ int main(int argc, char *argv[]) {
             perror("No such file or directory");
             return ENOENT;
         }
-        // TODO: struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
-        // TODO: struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
-        // TODO: struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; 
-        // TODO: unsigned int inode_remove_num = 0;
+        struct ext2_super_block *sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
+        struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
+        char *inode_bitmap = (char *)(disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+        char *block_bitmap = (char *)(disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
+
+        unsigned int inode_remove_num = 0;
         // step through each block 
-        printf("\n%s\n", file_name);
         int tsize = 0;
         for(int i = 0; i < 15 && dir_inode->i_block[i] != 0; i++) {
+            int found = 0;
             int block_size = 0;
             // get that block
             struct ext2_dir_entry_2 *curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
             // if inode exists
-            while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size) {
+            while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size && found != 1) {
                 // check if same length to avoid matching first part of a longer string
                 if(curr_dir_entry->name_len == strlen(file_name)) {
-                    // if directory entry found, set it to 0
+                    // if directory entry found, set it to 0 and set found to 1
                     if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
-                        // TODO: inode_remove_num = curr_dir_entry->inode;
+                        inode_remove_num = curr_dir_entry->inode;
                         memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
-                        break;
+                        found = 1;
                     }
 
                 }
@@ -106,16 +106,29 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-        printf("done main loop\n");
-        fflush(stdout);
-        // if file has links, decrease the count
+
+        // if file has links, decrease the file inode count, increase superblock free inode count
         if (file_inode->i_links_count > 0){
             file_inode->i_links_count -= 1;
-        } 
+            // sb->s_free_inodes_count += 1;
+        } else {
+            perror("File inode has 0 links count");
+            exit(1);
+        }
         
-        // update the i_dtime for the inode
         if (file_inode->i_links_count == 0) {
+             // update the i_dtime for the inode
             file_inode->i_dtime = (unsigned int) time(NULL);
+            // increase free inodes count
+            sb->s_free_inodes_count += 1;
+            // remove inode bitmap
+            inode_bitmap[(inode_remove_num - 1) / 8] = ((inode_remove_num - 1) / 8) & ~(1 << ((inode_remove_num - 1) % 8));
+            // remove block bitmap
+            for (int i = 0; i < 15 && file_inode->i_block[i] != 0; i++) {
+                block_bitmap[(file_inode->i_block[i] - 1) / 8] = ((file_inode->i_block[i] - 1) / 8) & ~(1 << ((file_inode->i_block[i] - 1) % 8));
+            }
+            // now that everything is removed, zero file inode
+            file_inode = 0;
         }
     }
 
