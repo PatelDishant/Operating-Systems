@@ -40,6 +40,10 @@ int main(int argc, char *argv[]) {
     // open disk image
     map(img_name);
 
+
+    // get the file name
+    char* file_name = get_filename(ext2_path);
+
     // get the path to the file 
     char **file_path_array = split(ext2_path);
     if(!file_path_array){
@@ -58,8 +62,7 @@ int main(int argc, char *argv[]) {
         perror("Directory specified instead of file, use -r to remove directory");
         return ENOENT;
     } else {
-        // get the file name
-        char* file_name = get_filename(ext2_path);
+        
         // get the path to the directory which contains the file
         char **dir_array = split_dir(ext2_path);
         if(!dir_array){
@@ -77,6 +80,7 @@ int main(int argc, char *argv[]) {
         // TODO: struct ext2_inode* curr_inode = &inode_table[INODE_NUMBER(EXT2_ROOT_INO)]; 
         // TODO: unsigned int inode_remove_num = 0;
         // step through each block 
+        printf("\n%s\n", file_name);
         int tsize = 0;
         for(int i = 0; i < 15 && dir_inode->i_block[i] != 0; i++) {
             int block_size = 0;
@@ -85,9 +89,9 @@ int main(int argc, char *argv[]) {
             // if inode exists
             while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size) {
                 // check if same length to avoid matching first part of a longer string
-                if(curr_dir_entry->name_len == strlen(*file_name)) {
+                if(curr_dir_entry->name_len == strlen(file_name)) {
                     // if directory entry found, set it to 0
-                    if (strncmp(file_name, curr_dir_entry->name, strlen(*file_name)) == 0) {
+                    if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
                         // TODO: inode_remove_num = curr_dir_entry->inode;
                         memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
                         break;
@@ -107,11 +111,8 @@ int main(int argc, char *argv[]) {
         // if file has links, decrease the count
         if (file_inode->i_links_count > 0){
             file_inode->i_links_count -= 1;
-        } else {
-            perror("inode has no links");
-            exit(1);
-        }
-
+        } 
+        
         // update the i_dtime for the inode
         if (file_inode->i_links_count == 0) {
             file_inode->i_dtime = (unsigned int) time(NULL);
