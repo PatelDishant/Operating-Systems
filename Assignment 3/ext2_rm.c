@@ -40,7 +40,6 @@ int main(int argc, char *argv[]) {
     // open disk image
     map(img_name);
 
-
     // get the file name
     char* file_name = get_filename(ext2_path);
 
@@ -62,7 +61,6 @@ int main(int argc, char *argv[]) {
         perror("Directory specified instead of file, use -r to remove directory");
         return ENOENT;
     } else {
-        
         // get the path to the directory which contains the file
         char **dir_array = split_dir(ext2_path);
         if(!dir_array){
@@ -82,21 +80,21 @@ int main(int argc, char *argv[]) {
 
         unsigned int inode_remove_num = 0;
         // step through each block 
-        printf("\n%s\n", file_name);
         int tsize = 0;
         for(int i = 0; i < 15 && dir_inode->i_block[i] != 0; i++) {
+            int found = 0;
             int block_size = 0;
             // get that block
             struct ext2_dir_entry_2 *curr_dir_entry = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_inode->i_block[i]);
             // if inode exists
-            while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size) {
+            while(block_size < EXT2_BLOCK_SIZE && tsize < dir_inode->i_size && found != 1) {
                 // check if same length to avoid matching first part of a longer string
                 if(curr_dir_entry->name_len == strlen(file_name)) {
-                    // if directory entry found, set it to 0
+                    // if directory entry found, set it to 0 and set found to 1
                     if (strncmp(file_name, curr_dir_entry->name, strlen(file_name)) == 0) {
                         inode_remove_num = curr_dir_entry->inode;
                         memset(curr_dir_entry, 0, sizeof(struct ext2_dir_entry_2));
-                        break;
+                        found = 1;
                     }
 
                 }
@@ -129,6 +127,8 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < 15 && file_inode->i_block[i] != 0; i++) {
                 block_bitmap[(file_inode->i_block[i] - 1) / 8] = ((file_inode->i_block[i] - 1) / 8) & ~(1 << ((file_inode->i_block[i] - 1) % 8));
             }
+            // now that everything is removed, zero file inode
+            file_inode = 0;
         }
     }
 
