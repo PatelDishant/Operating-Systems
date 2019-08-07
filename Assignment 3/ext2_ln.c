@@ -99,19 +99,12 @@ int main(int argc, char *argv[]) {
         return ENOENT;
     }
     
-    // now we do the linking...
-    // hard link case
-    if(s_flag == 0){
-        // create a dir entr
-        struct ext2_dir_entry_2 new_entry;
-        // add the name len and name
-        new_entry.name_len = strlen(lastpath);
-        new_entry.name[new_entry.name_len + new_entry.name_len % 4];
-        memset(new_entry.name, '\0', (new_entry.name_len + new_entry.name_len % 4) * sizeof(char));
-        strncpy(new_entry.name, lastpath, strlen(lastpath));
-        // set inode to be final inode orig
-        // increment link count for the final_inode_orig
-
+    // check if s flag is active
+    if(s_flag == 1){
+        // a new inode must be created for this symbolic
+        // TODO: struct ext2_inode* node = create_new_inode(EXT2_S_IFLNK, ext2_path_orig);
+    } else {
+        // node 
     }
 
 return 1;
