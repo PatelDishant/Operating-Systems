@@ -41,42 +41,45 @@ int main(int argc, char *argv[]) {
     struct ext2_super_block *super_block = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
     struct ext2_group_desc* gd = (struct ext2_group_desc *)(disk + EXT2_BLOCK_SIZE * 2);
     struct ext2_inode* inode_table = (struct ext2_inode *)(disk + EXT2_BLOCK_SIZE * gd->bg_inode_table);
-    char *bitmap = (char *)(disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE));
+    char *inode_bitmap = (char *)(disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+    char *block_bitmap = (char *)(disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
     
-    // get the path to the directory which contains the file
-    char **dir_path_array = split_dir(ext2_path);
+    // get the path to the directory where we want to mkdir
+    char **container_path_array = split_dir(ext2_path);
+    if(!container_path_array){
+        perror("No such file or directory");
+        return ENOENT;
+    }
+
+    // locate the container directory inode
+    struct ext2_inode* container_inode = find_inode(container_path_array);
+    if(!container_inode){
+        perror("No such file or directory");
+        return ENOENT;
+    }
+
+    // get the path to the new dir
+    char **dir_path_array = split(ext2_path);
     if(!dir_path_array){
-        perror("No such file or directory");
-        return ENOENT;
-    }
-
-    // locate the directory inode
-    struct ext2_inode* dir_inode = find_inode(dir_path_array);
-    if(!dir_inode){
-        perror("No such file or directory");
-        return ENOENT;
-    }
-
-    // get the path to the file 
-    char **file_path_array = split(ext2_path);
-    if(!file_path_array){
         perror("Invalid path given");
         return ENOENT;
     }
 
-    // check if file already exists
-    struct ext2_inode* file_inode = find_inode(file_path_array);
-    if(file_inode){
-        perror("File with specified name already exists");
+    // check if dir already exists
+    struct ext2_inode* dir_inode = find_inode(dir_path_array);
+    if(dir_inode){
+        perror("Directory or file with specified name already exists");
         return EEXIST;
     } else {
+         
         int byte, bit;
         unsigned int inode_num;
         unsigned int num_bytes = super_block->s_inodes_count / 8;
+        // look for a free block if possible
         if (super_block->s_free_inodes_count) {
             for (byte = 1; byte < num_bytes; byte++) {
                 for (bit = (EXT2_GOOD_OLD_FIRST_INO - 1) % 8; bit < 8; bit++) {
-                    if (((bitmap[byte]& (1 << bit)) & 1) == 0) {
+                    if (((inode_bitmap[byte]& (1 << bit)) & 1) == 0) {
                         break;
                     } 
                 }
@@ -87,14 +90,47 @@ int main(int argc, char *argv[]) {
                     break;
                 }
             }
+        // get the inode_num = first free block inode
         inode_num = (byte * 8) + (bit) + 1;
         } else {
             inode_num = 0;
         }
+        // reduce the free inodes count 
         super_block->s_free_inodes_count -= 1;
-        bitmap[byte] = byte | (1 << bit);
+        inode_bitmap[byte] = byte | (1 << bit);
+        // set new dir inode properties
+        struct ext2_inode *dir_inode = &(inode_table[inode_num - 1]);
+        dir_inode->i_links_count = 1;
+        dir_inode->i_mode = EXT2_S_IFDIR;
+
+        // do the same thing for block
+        int byteb, bitb;
+        unsigned int block_num;
+        unsigned int num_bytesb = super_block->s_inodes_count / 8;
+        if (super_block->s_free_blocks_count) {
+                for (byteb = 1; byteb < num_bytesb; byteb++) {
+                    for (bitb = (EXT2_GOOD_OLD_FIRST_INO - 1) % 8; bitb < 8; bitb++) {
+                        if (((inode_bitmap[byteb]& (1 << bitb)) & 1) == 0) {
+                            break;
+                        } 
+                    }
+                    // last bit for byte so reset
+                    if (bitb == 8) {
+                        bitb = 0;
+                    } else {
+                        break;
+                    }
+                }
+            // get the block_num = first free block 
+            block_num = (byteb * 8) + (bitb) + 1;
+        } else {
+            block_num = 0;
+        }
+        // reduce the block count
+        super_block->s_free_blocks_count -= 1;
+        block_bitmap[byteb] = byteb | (1 << bitb);
+        dir_inode->i_block[0] = block_num;
+
     }
-
-
 return 1;
 }
